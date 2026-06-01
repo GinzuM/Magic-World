@@ -1,5 +1,6 @@
 import { player } from '../entities/player.js';
 import { activeProjectiles } from '../entities/projectile.js';
+import { SceneManager } from '../main.js';
 
 const canvas = document.getElementById('raycaster');
 const ctx = canvas.getContext('2d');
@@ -12,17 +13,18 @@ function degToRad(deg) {
 }
 
 export function castRays(map) {
-  // Limpeza de buffer e preenchimento de Teto/Chão
-  ctx.fillStyle = '#050505'; 
+  const isDungeon = SceneManager.isDungeon;
+  
+  // Teto e Chão dinâmicos baseados no ambiente
+  ctx.fillStyle = isDungeon ? '#020202' : '#050505'; 
   ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
-  ctx.fillStyle = '#0a0a0a'; 
+  ctx.fillStyle = isDungeon ? '#0a0a0a' : '#0a0a0a'; 
   ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
 
   const ZBuffer = new Float64Array(canvas.width);
   const halfFOV = FOV / 2;
   const rayAngleStep = FOV / canvas.width;
   
-  // Etapa 1: Raycasting DDA para Malha Geométrica (Paredes)
   for (let x = 0; x < canvas.width; x += RESOLUTION) {
     const rayAngle = (player.angle - halfFOV + (x * rayAngleStep)) % 360;
     const rad = degToRad(rayAngle);
@@ -40,6 +42,7 @@ export function castRays(map) {
     let stepX, stepY;
     let hit = 0;
     let side = 0;
+    let hitType = 0;
 
     if (rayDirX < 0) {
       stepX = -1;
@@ -67,39 +70,49 @@ export function castRays(map) {
         mapY += stepY;
         side = 1;
       }
-      if (map[mapY] && map[mapY][mapX] > 0) hit = 1;
+      
+      if (map[mapY] && map[mapY][mapX] > 0) {
+        hit = 1;
+        hitType = map[mapY][mapX];
+      }
     }
 
     if (side === 0) perpWallDist = (mapX - player.x + (1 - stepX) / 2) / rayDirX;
     else perpWallDist = (mapY - player.y + (1 - stepY) / 2) / rayDirY;
 
-    // Correção Fisheye
     const correctedDist = perpWallDist * Math.cos(degToRad(player.angle - rayAngle));
     ZBuffer[x] = correctedDist;
 
     const lineHeight = (canvas.height / correctedDist);
     const drawStart = -lineHeight / 2 + canvas.height / 2;
     
-    let color = map[mapY][mapX] === 1 ? '#006666' : '#003333';
-    if (side === 1) color = map[mapY][mapX] === 1 ? '#004444' : '#002222';
+    let color;
+    if (hitType === 1) { 
+      if (isDungeon) {
+        color = side === 1 ? '#333333' : '#444444'; // Masmorra: Tons de rocha cinza
+      } else {
+        color = side === 1 ? '#004444' : '#006666'; // Mundo Aberto: Tons verde-musgo
+      }
+    } else if (hitType === 2) { 
+      color = side === 1 ? '#6600cc' : '#8800ff'; // Portal de Descida: Roxo brilhante
+    } else if (hitType === 3) { 
+      color = side === 1 ? '#0088cc' : '#00aaff'; // Portal de Subida/Saída: Ciano brilhante
+    }
 
     ctx.fillStyle = color;
     ctx.fillRect(x, drawStart, RESOLUTION, lineHeight);
   }
 
-  // Etapa 2: Renderização de Sprites Vetoriais (Projéteis)
   renderSprites(ZBuffer);
 }
 
 function renderSprites(ZBuffer) {
-  // Ordenação Z-Index inversa para garantir a renderização correta das oclusões
   const sortedProjectiles = [...activeProjectiles].sort((a, b) => {
     const distA = Math.pow(player.x - a.x, 2) + Math.pow(player.y - a.y, 2);
     const distB = Math.pow(player.x - b.x, 2) + Math.pow(player.y - b.y, 2);
     return distB - distA;
   });
 
-  // Vetor do Plano da Câmera (ajustado para o FOV de 60 graus)
   const planeX = -Math.sin(degToRad(player.angle)) * 0.66;
   const planeY = Math.cos(degToRad(player.angle)) * 0.66;
   const dirX = Math.cos(degToRad(player.angle));
@@ -129,7 +142,7 @@ function renderSprites(ZBuffer) {
 
       ctx.fillStyle = sprite.color;
       ctx.shadowColor = sprite.color;
-      ctx.shadowBlur = sprite.id === 'E' ? 0 : 20; // Magia de terra não possui luminescência
+      ctx.shadowBlur = sprite.id === 'E' ? 0 : 20; 
 
       for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
         if (stripe >= 0 && stripe < canvas.width && transformY < ZBuffer[stripe]) {

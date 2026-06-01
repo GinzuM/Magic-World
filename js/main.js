@@ -13,25 +13,109 @@ export const Inventory = {
   activeIndex: 0
 };
 
-const SceneManager = {
-  activeMap: [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],
-    [1,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,1],
-    [1,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,0,1],
-    [1,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1],
-    [1,1,1,1,0,0,1,1,1,1,0,0,1,0,1,0,0,0,0,1],
-    [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,1,0,1],
-    [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,1,0,1],
-    [1,0,1,1,1,0,1,0,0,1,0,0,1,1,1,0,0,0,0,1],
-    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1],
-    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-  ]
+// Geração de Mundo Aberto 1000x1000
+function generateOverworld(size) {
+  const map = Array.from({ length: size }, () => new Uint8Array(size).fill(0));
+  
+  // Bordas do mundo
+  for (let i = 0; i < size; i++) {
+    map[0][i] = 1; map[size - 1][i] = 1; map[i][0] = 1; map[i][size - 1] = 1;
+  }
+  
+  // Geração de ruínas com portais de entrada espalhados pelo mundo aberto
+  const numRuins = 400; 
+  for (let i = 0; i < numRuins; i++) {
+    let rx = Math.floor(Math.random() * (size - 10)) + 5;
+    let ry = Math.floor(Math.random() * (size - 10)) + 5;
+    
+    // Evita gerar portal em cima do spawn inicial do jogador
+    if(rx < 10 && ry < 10) continue; 
+    
+    map[ry-1][rx-1] = 1; map[ry-1][rx] = 1; map[ry-1][rx+1] = 1;
+    map[ry][rx-1] = 1;   map[ry][rx] = 2;   map[ry][rx+1] = 1;  // 2 = Portal Dungeon
+    map[ry+1][rx-1] = 1; map[ry+1][rx] = 0; map[ry+1][rx+1] = 1;
+  }
+  return map;
+}
+
+// Geração de Masmorra procedural (Random Walk)
+function generateDungeon(size) {
+  const map = Array.from({ length: size }, () => new Uint8Array(size).fill(1));
+  let x = Math.floor(size/2);
+  let y = Math.floor(size/2);
+  let floorTiles = 0;
+  const maxFloor = Math.floor(size * size * 0.4);
+  
+  // Escavação da masmorra
+  while(floorTiles < maxFloor) {
+    if(map[y][x] === 1) { map[y][x] = 0; floorTiles++; }
+    let dir = Math.floor(Math.random() * 4);
+    if(dir === 0 && x < size - 2) x++;
+    else if(dir === 1 && x > 1) x--;
+    else if(dir === 2 && y < size - 2) y++;
+    else if(dir === 3 && y > 1) y--;
+  }
+  
+  map[Math.floor(size/2)][Math.floor(size/2)] = 3; // 3 = Portal de Saída (volta/sobe)
+  map[y][x] = 2; // 2 = Portal para descer mais fundo
+  
+  return map;
+}
+
+export const SceneManager = {
+  isDungeon: false,
+  overworldMap: generateOverworld(1000),
+  dungeonFloors: [],
+  currentFloorIndex: -1,
+  savedOverworldCoords: { x: 5.5, y: 5.5 },
+  activeMap: null,
+  
+  enterPortal: function(type) {
+    if (!this.isDungeon) {
+      this.savedOverworldCoords = { x: player.x, y: player.y };
+      this.isDungeon = true;
+      this.currentFloorIndex = 0;
+      
+      if(this.dungeonFloors.length === 0) this.dungeonFloors.push(generateDungeon(40));
+      this.activeMap = this.dungeonFloors[0];
+      
+      player.x = Math.floor(this.activeMap.length/2) + 0.5;
+      player.y = Math.floor(this.activeMap.length/2) + 0.5;
+      document.getElementById('map-log').textContent = "Masmorra - Andar 1";
+      document.getElementById('map-log').style.color = "#a00";
+    } else {
+      if (type === 'down') {
+        this.currentFloorIndex++;
+        if(!this.dungeonFloors[this.currentFloorIndex]) {
+            this.dungeonFloors.push(generateDungeon(40 + this.currentFloorIndex * 5));
+        }
+        this.activeMap = this.dungeonFloors[this.currentFloorIndex];
+        player.x = Math.floor(this.activeMap.length/2) + 0.5;
+        player.y = Math.floor(this.activeMap.length/2) + 0.5;
+        document.getElementById('map-log').textContent = `Masmorra - Andar ${this.currentFloorIndex + 1}`;
+      } else if (type === 'up') {
+        this.currentFloorIndex--;
+        if (this.currentFloorIndex < 0) {
+          this.isDungeon = false;
+          this.activeMap = this.overworldMap;
+          player.x = this.savedOverworldCoords.x;
+          player.y = this.savedOverworldCoords.y + 1.5; 
+          document.getElementById('map-log').textContent = "Mundo Aberto";
+          document.getElementById('map-log').style.color = "#fa0";
+        } else {
+          this.activeMap = this.dungeonFloors[this.currentFloorIndex];
+          player.x = Math.floor(this.activeMap.length/2) + 0.5;
+          player.y = Math.floor(this.activeMap.length/2) + 0.5;
+          document.getElementById('map-log').textContent = `Masmorra - Andar ${this.currentFloorIndex + 1}`;
+        }
+      }
+    }
+    activeProjectiles.length = 0; // Limpa as magias residuais ao trocar de mapa
+  }
 };
+
+SceneManager.activeMap = SceneManager.overworldMap;
+player.x = 5.5; player.y = 5.5; 
 
 let lastTime = performance.now();
 let timeScale = 1.0;
@@ -115,7 +199,7 @@ function executeAction2() {
       }
       spellLog.textContent = `Disparo Rápido: ${cacheSpell.spellId}`;
       spellLog.style.color = "#a0f";
-      spawnProjectile(player, cacheSpell); // Gatilho de disparo da entidade via cache
+      spawnProjectile(player, cacheSpell); 
       break;
     case 1:
       spellLog.textContent = "Grimório sem ação secundária."; spellLog.style.color = "#b89962";
@@ -170,7 +254,7 @@ onSpellCast((spellResult) => {
   cacheSpell = spellResult; 
   recastLog.textContent = `Recast Disponível: ${cacheSpell.spellId}`;
   
-  spawnProjectile(player, spellResult); // Gatilho de disparo da entidade via desenho primário
+  spawnProjectile(player, spellResult); 
 });
 
 document.querySelectorAll('.guide-btn').forEach(btn => {
@@ -189,7 +273,23 @@ function gameLoop(timestamp) {
 
   if (gameState !== 'PAUSED') {
     updatePlayer(deltaTime, timeScale, SceneManager.activeMap);
-    updateProjectiles(deltaTime, timeScale, SceneManager.activeMap); // Processamento da Física das Entidades
+    updateProjectiles(deltaTime, timeScale, SceneManager.activeMap);
+
+    // Sistema Analítico de Colisão de Portais
+    let px = Math.floor(player.x);
+    let py = Math.floor(player.y);
+    for(let dy=-1; dy<=1; dy++) {
+      for(let dx=-1; dx<=1; dx++) {
+        let ty = py+dy, tx = px+dx;
+        if(SceneManager.activeMap[ty] && SceneManager.activeMap[ty][tx] > 1) {
+          let dist = Math.hypot(player.x - (tx+0.5), player.y - (ty+0.5));
+          if(dist < 1.0) {
+            if(SceneManager.activeMap[ty][tx] === 2) SceneManager.enterPortal('down');
+            if(SceneManager.activeMap[ty][tx] === 3) SceneManager.enterPortal('up');
+          }
+        }
+      }
+    }
   }
   
   castRays(SceneManager.activeMap);

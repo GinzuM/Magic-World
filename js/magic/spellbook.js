@@ -9,49 +9,41 @@ export const SpellRegistry = {
 const NUM_POINTS = 64;
 const SQUARE_SIZE = 100;
 
-// Geometrias unistroke calibradas para tolerância de toque mobile
 const rawTemplates = {
-  // A: Triângulo simples (Ponta inferior esquerda -> Topo -> Ponta inferior direita)
   'A': [{x: 20, y: 90}, {x: 50, y: 10}, {x: 80, y: 90}],
-  // E: C invertido serpenteante
   'E': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 50}, {x: 60, y: 50}, {x: 20, y: 50}, {x: 20, y: 80}, {x: 80, y: 80}],
-  // I: Traço vertical limpo
-  'I': [{x: 50, y: 20}, {x: 50, y: 80}],
-  // U: Curvatura convexa completa
+  'I': [{x: 50, y: 10}, {x: 50, y: 90}],
   'U': [{x: 20, y: 20}, {x: 20, y: 70}, {x: 40, y: 90}, {x: 60, y: 90}, {x: 80, y: 70}, {x: 80, y: 20}]
 };
 
 export const Templates = {};
 
-function compileTemplate(points) {
+// Processamento Geométrico Proporcional (Evita distorção de linhas finas como a letra 'I')
+function processGesture(points) {
   let resampled = resample(points, NUM_POINTS);
-  const bounds = calculateBoundingBox(resampled);
-  resampled = scaleTo(resampled, SQUARE_SIZE, bounds);
-  const scaledBounds = calculateBoundingBox(resampled);
-  return translateToOrigin(resampled, scaledBounds);
+  let bounds = calculateBoundingBox(resampled);
+  resampled = scaleProportional(resampled, SQUARE_SIZE, bounds);
+  bounds = calculateBoundingBox(resampled);
+  resampled = translateToOrigin(resampled, bounds);
+  bounds = calculateBoundingBox(resampled);
+  return centerInSquare(resampled, SQUARE_SIZE, bounds);
 }
 
 for (const [key, path] of Object.entries(rawTemplates)) {
-  Templates[key] = compileTemplate(path);
+  Templates[key] = processGesture(path);
 }
 
-// O círculo 'O' requer precisão trigonométrica
 let circlePoints = [];
 for (let i = 0; i < NUM_POINTS; i++) {
   const angle = (i / NUM_POINTS) * Math.PI * 2;
   circlePoints.push({ x: 50 + 50 * Math.cos(angle), y: 50 + 50 * Math.sin(angle) });
 }
-Templates['O'] = compileTemplate(circlePoints);
+Templates['O'] = processGesture(circlePoints);
 
 export function compileSpell(strokePath) {
   if (!strokePath || strokePath.length < 2) return null;
 
-  let points = resample(strokePath, NUM_POINTS);
-  const bounds = calculateBoundingBox(points);
-  points = scaleTo(points, SQUARE_SIZE, bounds);
-  const scaledBounds = calculateBoundingBox(points);
-  points = translateToOrigin(points, scaledBounds);
-
+  const points = processGesture(strokePath);
   return recognize(points);
 }
 
@@ -68,8 +60,8 @@ function recognize(points) {
     }
   }
 
-  // Threshold em 55 garante alta tolerância anatômica para telas de celular
-  const threshold = 55; 
+  // O threshold foi ampliado porque a escala proporcional agora garante que a forma não distorça
+  const threshold = 65; 
   const score = Math.max(0, 1.0 - (bestScore / threshold));
 
   return { 
@@ -78,7 +70,6 @@ function recognize(points) {
   };
 }
 
-// Cálculo Euclidiano Adaptativo O(N) para formas fechadas e abertas bidirecionais
 function pathDistance(pts1, pts2, isClosed) {
   const n = pts1.length;
   if (isClosed) {
@@ -153,14 +144,16 @@ function calculateBoundingBox(path) {
   return { minX, maxX, minY, maxY };
 }
 
-function scaleTo(points, size, bounds) {
+function scaleProportional(points, size, bounds) {
   let scaled = [];
   const width = Math.max(bounds.maxX - bounds.minX, 1);
   const height = Math.max(bounds.maxY - bounds.minY, 1);
+  const scale = size / Math.max(width, height); 
+
   for (let i = 0; i < points.length; i++) {
     scaled.push({
-      x: points[i].x * (size / width),
-      y: points[i].y * (size / height)
+      x: points[i].x * scale,
+      y: points[i].y * scale
     });
   }
   return scaled;
@@ -175,4 +168,17 @@ function translateToOrigin(points, bounds) {
     });
   }
   return translated;
+}
+
+function centerInSquare(points, size, bounds) {
+  const offsetX = (size - (bounds.maxX - bounds.minX)) / 2;
+  const offsetY = (size - (bounds.maxY - bounds.minY)) / 2;
+  let centered = [];
+  for (let i = 0; i < points.length; i++) {
+    centered.push({
+      x: points[i].x + offsetX,
+      y: points[i].y + offsetY
+    });
+  }
+  return centered;
 }
