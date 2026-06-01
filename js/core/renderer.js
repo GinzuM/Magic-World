@@ -87,15 +87,15 @@ export function castRays(map) {
     
     let color;
     if (hitType === 1) { 
-      if (isDungeon) {
-        color = side === 1 ? '#2c2c30' : '#3a3a40';
-      } else {
-        color = side === 1 ? '#0b3d30' : '#125443';
-      }
+      color = side === 1 ? (isDungeon ? '#2c2c30' : '#0b3d30') : (isDungeon ? '#3a3a40' : '#125443');
     } else if (hitType === 2) { 
       color = side === 1 ? '#5200cc' : '#7300e6';
     } else if (hitType === 3) { 
       color = side === 1 ? '#007acc' : '#0099ff';
+    } else if (hitType === 4) { // Caixa destrutível
+      color = side === 1 ? '#8b5a2b' : '#a0522d';
+    } else if (hitType === 5) { // Baú
+      color = side === 1 ? '#ffd700' : '#ffcc00';
     }
 
     ctx.fillStyle = color;

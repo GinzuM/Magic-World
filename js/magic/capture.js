@@ -1,11 +1,12 @@
 import { compileSpell, Templates } from './spellbook.js';
-import { Inventory } from '../main.js';
+import { Inventory, updateLivePreview } from '../main.js';
 
 export const captureState = {
   isDrawing: false,
   strokePath: []
 };
 
+// A fila agora é mantida globalmente até a magia ser conjurada
 let accumulatedRunes = [];
 let accumulatedAccuracies = [];
 let spellCallback = null;
@@ -19,6 +20,10 @@ export function onSpellCast(callback) {
   spellCallback = callback;
 }
 
+export function getSpellQueue() {
+  return accumulatedRunes.join('');
+}
+
 function resizeCanvasToDisplaySize() {
   const rect = canvas.getBoundingClientRect();
   if (canvas.width !== rect.width || canvas.height !== rect.height) {
@@ -27,24 +32,24 @@ function resizeCanvasToDisplaySize() {
   }
 }
 
-// Renderiza o traço guia com escala reduzida e centralização matemática
+function updateUI() {
+  const seqStr = accumulatedRunes.join('');
+  updateLivePreview(seqStr);
+}
+
 function drawWatermark() {
   if (!window.activeWatermark || !Templates[window.activeWatermark]) return;
   
   const templatePoints = Templates[window.activeWatermark];
   ctx.save();
-  
-  // Estética Rúnica (Traço contínuo com luminescência)
   ctx.strokeStyle = 'rgba(184, 153, 98, 0.4)'; 
   ctx.lineWidth = 12; 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.shadowColor = 'rgba(184, 153, 98, 0.8)';
   ctx.shadowBlur = 15;
-  ctx.setLineDash([]); 
   ctx.beginPath();
   
-  // Constantes de Escalonamento (20% de margem em cada lado = 60% de área útil)
   const padding = 0.20; 
   const drawAreaWidth = canvas.width * (1 - padding * 2);
   const drawAreaHeight = canvas.height * (1 - padding * 2);
@@ -74,11 +79,8 @@ export function toggleSpellMode() {
     overlay.style.display = 'flex';
     resizeCanvasToDisplaySize();
     
-    accumulatedRunes = [];
-    accumulatedAccuracies = [];
-    seqDisplay.textContent = "Fila: Vazia";
-    seqDisplay.style.color = "#0ff";
-    
+    // Atualiza a UI para refletir o estado do cache atual sem apagar
+    updateUI();
     clearCanvasWithWatermark();
     return 0.2;
   }
@@ -117,12 +119,19 @@ canvas.addEventListener('pointermove', e => {
   ctx.lineWidth = 6;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.setLineDash([]); 
   ctx.stroke();
 });
 
 canvas.addEventListener('pointerup', () => captureState.isDrawing = false);
 canvas.addEventListener('pointerleave', () => captureState.isDrawing = false);
+
+export function undoLastRune() {
+  if (accumulatedRunes.length > 0) {
+    accumulatedRunes.pop();
+    accumulatedAccuracies.pop();
+    updateUI();
+  }
+}
 
 export function appendCurrentRune(shouldFinalize = false) {
   if (captureState.strokePath.length < 2) {
@@ -135,11 +144,11 @@ export function appendCurrentRune(shouldFinalize = false) {
   if (result && result.spellId !== 'Falha') {
     accumulatedRunes.push(result.spellId);
     accumulatedAccuracies.push(parseFloat(result.accuracy));
-    seqDisplay.textContent = `Fila: ${accumulatedRunes.join(' ')}`;
-    seqDisplay.style.color = "#0ff";
+    updateUI();
   } else {
     seqDisplay.textContent = "Runa Rejeitada!";
     seqDisplay.style.color = "#f00";
+    setTimeout(updateUI, 1000); // Restaura a fila após 1 segundo de erro
   }
 
   window.activeWatermark = null; 
@@ -160,6 +169,12 @@ function finalizeWholeSpell() {
   const avgAccuracy = (accumulatedAccuracies.reduce((a, b) => a + b, 0) / accumulatedAccuracies.length).toFixed(0);
 
   if (spellCallback) spellCallback({ spellId: finalString, accuracy: avgAccuracy });
+  
+  // Limpa o cache após a execução com sucesso
+  accumulatedRunes = [];
+  accumulatedAccuracies = [];
+  updateUI();
+
   toggleSpellMode();
 }
 
