@@ -9,13 +9,13 @@ export const SpellRegistry = {
 const NUM_POINTS = 64;
 const SQUARE_SIZE = 100;
 
-// Vetores reconfigurados para emular a escrita manual natural (Unistroke Flow)
+// Geometrias unistroke calibradas para tolerância de toque mobile
 const rawTemplates = {
-  // A: Estrela contínua (Sobe esquerda -> Desce direita -> Cruza centro)
-  'A': [{x: 20, y: 90}, {x: 50, y: 10}, {x: 80, y: 90}, {x: 65, y: 60}, {x: 35, y: 60}],
-  // E: C invertido serpenteante (Topo direita -> Esquerda -> Base direita)
+  // A: Triângulo simples (Ponta inferior esquerda -> Topo -> Ponta inferior direita)
+  'A': [{x: 20, y: 90}, {x: 50, y: 10}, {x: 80, y: 90}],
+  // E: C invertido serpenteante
   'E': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 50}, {x: 60, y: 50}, {x: 20, y: 50}, {x: 20, y: 80}, {x: 80, y: 80}],
-  // I: Traço reto isolado
+  // I: Traço vertical limpo
   'I': [{x: 50, y: 20}, {x: 50, y: 80}],
   // U: Curvatura convexa completa
   'U': [{x: 20, y: 20}, {x: 20, y: 70}, {x: 40, y: 90}, {x: 60, y: 90}, {x: 80, y: 70}, {x: 80, y: 20}]
@@ -35,6 +35,7 @@ for (const [key, path] of Object.entries(rawTemplates)) {
   Templates[key] = compileTemplate(path);
 }
 
+// O círculo 'O' requer precisão trigonométrica
 let circlePoints = [];
 for (let i = 0; i < NUM_POINTS; i++) {
   const angle = (i / NUM_POINTS) * Math.PI * 2;
@@ -67,6 +68,7 @@ function recognize(points) {
     }
   }
 
+  // Threshold em 55 garante alta tolerância anatômica para telas de celular
   const threshold = 55; 
   const score = Math.max(0, 1.0 - (bestScore / threshold));
 
@@ -76,6 +78,7 @@ function recognize(points) {
   };
 }
 
+// Cálculo Euclidiano Adaptativo O(N) para formas fechadas e abertas bidirecionais
 function pathDistance(pts1, pts2, isClosed) {
   const n = pts1.length;
   if (isClosed) {

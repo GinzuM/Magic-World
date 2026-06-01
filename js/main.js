@@ -1,4 +1,5 @@
 import { player, updatePlayer, keys } from './entities/player.js';
+import { activeProjectiles, spawnProjectile, updateProjectiles } from './entities/projectile.js';
 import { castRays } from './core/renderer.js';
 import { toggleSpellMode, onSpellCast, appendCurrentRune } from './magic/capture.js';
 
@@ -12,7 +13,6 @@ export const Inventory = {
   activeIndex: 0
 };
 
-// Matriz integral restaurada para evitar Out of Bounds Raycasting
 const SceneManager = {
   activeMap: [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -34,14 +34,16 @@ const SceneManager = {
 };
 
 let lastTime = performance.now();
+let timeScale = 1.0;
 let cacheSpell = null; 
 
 const pauseMenu = document.getElementById('pause-menu');
 const grimoireMenu = document.getElementById('grimoire-overlay');
 const mobileControls = document.getElementById('mobile-controls');
 const toggleMobileCheckbox = document.getElementById('toggle-mobile-controls');
-const log = document.getElementById('spell-log');
+const spellLog = document.getElementById('spell-log');
 const recastLog = document.getElementById('recast-log');
+const itemLog = document.getElementById('item-log');
 
 const keyButtonMap = {
   'w': 'mobile-up', 's': 'mobile-down', 'a': 'mobile-left', 'd': 'mobile-right',
@@ -93,7 +95,7 @@ function executeAction1() {
   switch(Inventory.activeIndex) {
     case 0: toggleSpellMode(); break;
     case 1: toggleGrimoire(true); break;
-    case 2: log.textContent = "Ação 1 inativa."; log.style.color = "#aaa"; break;
+    case 2: spellLog.textContent = "Ação 1 inativa."; spellLog.style.color = "#aaa"; break;
   }
 }
 
@@ -108,14 +110,15 @@ function executeAction2() {
   switch(Inventory.activeIndex) {
     case 0: 
       if (!cacheSpell) {
-        log.textContent = "Cache Vazio!"; log.style.color = "#ff5500";
+        spellLog.textContent = "Cache Vazio!"; spellLog.style.color = "#ff5500";
         return;
       }
-      log.textContent = `Disparo Rápido: ${cacheSpell.spellId}`;
-      log.style.color = "#a0f";
+      spellLog.textContent = `Disparo Rápido: ${cacheSpell.spellId}`;
+      spellLog.style.color = "#a0f";
+      spawnProjectile(player, cacheSpell); // Gatilho de disparo da entidade via cache
       break;
     case 1:
-      log.textContent = "Grimório sem ação secundária."; log.style.color = "#a68a56";
+      spellLog.textContent = "Grimório sem ação secundária."; spellLog.style.color = "#b89962";
       break;
   }
 }
@@ -130,7 +133,7 @@ function setActiveSlot(index) {
       else slot.classList.remove('slot-active');
     }
   }
-  document.getElementById('item-log').textContent = `Equipado: ${Inventory.slots[index].name}`;
+  itemLog.textContent = `Equipado: ${Inventory.slots[index].name}`;
 }
 
 document.getElementById('menu-btn')?.addEventListener('click', togglePause);
@@ -159,13 +162,15 @@ window.addEventListener('keyup', e => { animateKey(e.key, false); });
 
 onSpellCast((spellResult) => {
   if (!spellResult || spellResult.spellId === 'Falha') {
-    log.textContent = "Magia: Falha no traço"; log.style.color = "#f00";
+    spellLog.textContent = "Magia: Falha no traço"; spellLog.style.color = "#f00";
     return;
   }
-  log.textContent = `Último Feitiço: ${spellResult.spellId} (${spellResult.accuracy}%)`;
-  log.style.color = "#0ff";
+  spellLog.textContent = `Último Feitiço: ${spellResult.spellId} (${spellResult.accuracy}%)`;
+  spellLog.style.color = "#0ff";
   cacheSpell = spellResult; 
   recastLog.textContent = `Recast Disponível: ${cacheSpell.spellId}`;
+  
+  spawnProjectile(player, spellResult); // Gatilho de disparo da entidade via desenho primário
 });
 
 document.querySelectorAll('.guide-btn').forEach(btn => {
@@ -184,6 +189,7 @@ function gameLoop(timestamp) {
 
   if (gameState !== 'PAUSED') {
     updatePlayer(deltaTime, timeScale, SceneManager.activeMap);
+    updateProjectiles(deltaTime, timeScale, SceneManager.activeMap); // Processamento da Física das Entidades
   }
   
   castRays(SceneManager.activeMap);

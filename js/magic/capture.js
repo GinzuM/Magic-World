@@ -27,25 +27,39 @@ function resizeCanvasToDisplaySize() {
   }
 }
 
+// Renderiza o traço guia com escala reduzida e centralização matemática
 function drawWatermark() {
   if (!window.activeWatermark || !Templates[window.activeWatermark]) return;
   
   const templatePoints = Templates[window.activeWatermark];
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 170, 0, 0.4)'; 
-  ctx.lineWidth = 15; 
+  
+  // Estética Rúnica (Traço contínuo com luminescência)
+  ctx.strokeStyle = 'rgba(184, 153, 98, 0.4)'; 
+  ctx.lineWidth = 12; 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
-  ctx.setLineDash([20, 15]); 
+  ctx.shadowColor = 'rgba(184, 153, 98, 0.8)';
+  ctx.shadowBlur = 15;
+  ctx.setLineDash([]); 
   ctx.beginPath();
   
+  // Constantes de Escalonamento (20% de margem em cada lado = 60% de área útil)
+  const padding = 0.20; 
+  const drawAreaWidth = canvas.width * (1 - padding * 2);
+  const drawAreaHeight = canvas.height * (1 - padding * 2);
+  const offsetX = canvas.width * padding;
+  const offsetY = canvas.height * padding;
+
   for (let i = 0; i < templatePoints.length; i++) {
     const pt = templatePoints[i];
-    const canvasX = (pt.x / 100) * canvas.width;
-    const canvasY = (pt.y / 100) * canvas.height;
+    const canvasX = offsetX + (pt.x / 100) * drawAreaWidth;
+    const canvasY = offsetY + (pt.y / 100) * drawAreaHeight;
+    
     if (i === 0) ctx.moveTo(canvasX, canvasY);
     else ctx.lineTo(canvasX, canvasY);
   }
+  
   ctx.stroke();
   ctx.restore();
 }
