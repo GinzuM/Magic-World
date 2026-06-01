@@ -6,12 +6,7 @@ export const captureState = {
   strokePath: []
 };
 
-let spellBuffer = [];
-let spellAccuracies = [];
-let bufferTimer = null;
-let lastCast = null;
 let spellCallback = null;
-
 const canvas = document.getElementById('spell-canvas');
 const ctx = canvas.getContext('2d');
 const overlay = document.getElementById('spell-overlay');
@@ -20,32 +15,30 @@ export function onSpellCast(callback) {
   spellCallback = callback;
 }
 
-function clearBuffer() {
-  spellBuffer = [];
-  spellAccuracies = [];
-  if (bufferTimer) {
-    clearTimeout(bufferTimer);
-    bufferTimer = null;
+// Sincroniza a resolução interna de pixels com o tamanho CSS real da tela
+function resizeCanvasToDisplaySize() {
+  const rect = canvas.getBoundingClientRect();
+  if (canvas.width !== rect.width || canvas.height !== rect.height) {
+    canvas.width = rect.width;
+    canvas.height = rect.height;
   }
 }
 
 export function toggleSpellMode() {
   if (overlay.style.display === 'flex') {
     overlay.style.display = 'none';
-    clearBuffer();
     return 1.0;
   } else {
     if (Inventory.activeIndex !== 0) {
-      console.warn("Acesso negado: Caderno de Magias não está equipado.");
       document.getElementById('spell-log').textContent = "Equipe o Caderno de Magias!";
       document.getElementById('spell-log').style.color = "#ffaa00";
       return 1.0; 
     }
     
     overlay.style.display = 'flex';
+    resizeCanvasToDisplaySize();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     captureState.strokePath = [];
-    clearBuffer();
     return 0.2;
   }
 }
@@ -55,14 +48,13 @@ function getNormalizedCoordinates(e) {
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
+  // Mapeia a posição do clique diretamente na proporção interna do canvas reconstruído
   const x = (clientX - rect.left) * (canvas.width / rect.width);
   const y = (clientY - rect.top) * (canvas.height / rect.height);
-
   return { x, y };
 }
 
 function startDraw(e) {
-  if (bufferTimer) clearTimeout(bufferTimer);
   captureState.isDrawing = true;
   const pos = getNormalizedCoordinates(e);
   captureState.strokePath.push(pos);
@@ -76,27 +68,14 @@ function draw(e) {
   captureState.strokePath.push(pos);
   ctx.lineTo(pos.x, pos.y);
   ctx.strokeStyle = '#0ff';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.stroke();
 }
 
 function endDraw() {
-  if (!captureState.isDrawing) return;
   captureState.isDrawing = false;
-  
-  const result = compileSpell(captureState.strokePath);
-  
-  // Limpa o canvas para o próximo caractere independentemente do resultado
-  captureState.strokePath = [];
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  if (result && result.spellId !== 'Falha') {
-    spellBuffer.push(result.spellId);
-    spellAccuracies.push(parseFloat(result.accuracy));
-  }
-  
-  // Inicia a janela de tolerância para o próximo traço (1.2 segundos)
-  bufferTimer = setTimeout(finalizeSpell, 1200);
 }
 
 canvas.addEventListener('pointerdown', startDraw);
@@ -104,33 +83,17 @@ canvas.addEventListener('pointermove', draw);
 canvas.addEventListener('pointerup', endDraw);
 canvas.addEventListener('pointerleave', endDraw);
 
-function finalizeSpell() {
-  if (spellBuffer.length === 0) {
+// Método de compilação manual invocado pelo botão ou por tecla de gatilho externa
+export function executeCompiledStroke() {
+  if (captureState.strokePath.length < 2) {
     toggleSpellMode();
     return;
   }
-  
-  const finalSpellId = spellBuffer.join('');
-  const avgAccuracy = (spellAccuracies.reduce((a, b) => a + b, 0) / spellAccuracies.length).toFixed(0);
-  
-  const finalResult = { spellId: finalSpellId, accuracy: avgAccuracy };
-  lastCast = finalResult;
-  
-  if (spellCallback) spellCallback(finalResult);
-  clearBuffer();
+
+  const result = compileSpell(captureState.strokePath);
+  if (spellCallback) spellCallback(result);
   toggleSpellMode();
 }
 
-document.getElementById('cast-spell-btn')?.addEventListener('click', () => {
-  if (bufferTimer) clearTimeout(bufferTimer);
-  finalizeSpell();
-});
-
-document.getElementById('recast-spell-btn')?.addEventListener('click', () => {
-  if (!lastCast) {
-    console.log("Nenhuma magia armazenada no cache.");
-    return;
-  }
-  if (spellCallback) spellCallback(lastCast);
-  toggleSpellMode();
-});
+document.getElementById('cast-spell-btn')?.addEventListener('click', executeCompiledStroke);
+document.getElementById('close-spell-btn')?.addEventListener('click', toggleSpellMode);
