@@ -9,16 +9,16 @@ export const SpellRegistry = {
 const NUM_POINTS = 64;
 const SQUARE_SIZE = 100;
 
-// Geometrias unistroke simplificadas e otimizadas
+// Vetores reconfigurados para emular a escrita manual natural (Unistroke Flow)
 const rawTemplates = {
-  // A: Triângulo simples (subindo e descendo de forma fluida)
-  'A': [{x: 15, y: 85}, {x: 50, y: 15}, {x: 85, y: 85}],
-  // E: Forma em C quadrado invertido (Topo -> Esquerda -> Base)
-  'E': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 80}, {x: 80, y: 80}],
-  // I: Traço vertical limpo de cima para baixo
-  'I': [{x: 50, y: 15}, {x: 50, y: 85}],
-  // U: Ferradura simétrica
-  'U': [{x: 20, y: 20}, {x: 20, y: 75}, {x: 50, y: 85}, {x: 80, y: 75}, {x: 80, y: 20}]
+  // A: Estrela contínua (Sobe esquerda -> Desce direita -> Cruza centro)
+  'A': [{x: 20, y: 90}, {x: 50, y: 10}, {x: 80, y: 90}, {x: 65, y: 60}, {x: 35, y: 60}],
+  // E: C invertido serpenteante (Topo direita -> Esquerda -> Base direita)
+  'E': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 50}, {x: 60, y: 50}, {x: 20, y: 50}, {x: 20, y: 80}, {x: 80, y: 80}],
+  // I: Traço reto isolado
+  'I': [{x: 50, y: 20}, {x: 50, y: 80}],
+  // U: Curvatura convexa completa
+  'U': [{x: 20, y: 20}, {x: 20, y: 70}, {x: 40, y: 90}, {x: 60, y: 90}, {x: 80, y: 70}, {x: 80, y: 20}]
 };
 
 export const Templates = {};
@@ -67,7 +67,6 @@ function recognize(points) {
     }
   }
 
-  // Threshold em 55 amplia a tolerância do motor contra variações de tamanho e curvatura
   const threshold = 55; 
   const score = Math.max(0, 1.0 - (bestScore / threshold));
 

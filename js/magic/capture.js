@@ -27,19 +27,18 @@ function resizeCanvasToDisplaySize() {
   }
 }
 
-// Renderiza o traço guia em background caso o usuário tenha selecionado no Grimório
 function drawWatermark() {
   if (!window.activeWatermark || !Templates[window.activeWatermark]) return;
   
   const templatePoints = Templates[window.activeWatermark];
   ctx.save();
-  ctx.strokeStyle = 'rgba(100, 100, 100, 0.35)';
-  ctx.lineWidth = 6;
+  ctx.strokeStyle = 'rgba(255, 170, 0, 0.4)'; 
+  ctx.lineWidth = 15; 
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.setLineDash([20, 15]); 
   ctx.beginPath();
   
-  // Mapeia as coordenadas normalizadas 100x100 de volta para a escala real do canvas
   for (let i = 0; i < templatePoints.length; i++) {
     const pt = templatePoints[i];
     const canvasX = (pt.x / 100) * canvas.width;
@@ -64,6 +63,7 @@ export function toggleSpellMode() {
     accumulatedRunes = [];
     accumulatedAccuracies = [];
     seqDisplay.textContent = "Fila: Vazia";
+    seqDisplay.style.color = "#0ff";
     
     clearCanvasWithWatermark();
     return 0.2;
@@ -100,16 +100,16 @@ canvas.addEventListener('pointermove', e => {
   captureState.strokePath.push(pos);
   ctx.lineTo(pos.x, pos.y);
   ctx.strokeStyle = '#0ff';
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 6;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
+  ctx.setLineDash([]); 
   ctx.stroke();
 });
 
 canvas.addEventListener('pointerup', () => captureState.isDrawing = false);
 canvas.addEventListener('pointerleave', () => captureState.isDrawing = false);
 
-// Consolida a runa desenhada atual e limpa a tela para a próxima
 export function appendCurrentRune(shouldFinalize = false) {
   if (captureState.strokePath.length < 2) {
     if (shouldFinalize) finalizeWholeSpell();
@@ -124,15 +124,14 @@ export function appendCurrentRune(shouldFinalize = false) {
     seqDisplay.textContent = `Fila: ${accumulatedRunes.join(' ')}`;
     seqDisplay.style.color = "#0ff";
   } else {
-    seqDisplay.textContent = "Runa Inválida Rejeitada!";
+    seqDisplay.textContent = "Runa Rejeitada!";
     seqDisplay.style.color = "#f00";
   }
 
-  window.activeWatermark = null; // Remove a guia visual após a tentativa
+  window.activeWatermark = null; 
   clearCanvasWithWatermark();
 
   if (shouldFinalize) {
-    // Pequena janela para garantir render antes do fechamento
     setTimeout(finalizeWholeSpell, 50);
   }
 }

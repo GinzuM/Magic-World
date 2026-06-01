@@ -12,6 +12,7 @@ export const Inventory = {
   activeIndex: 0
 };
 
+// Matriz integral restaurada para evitar Out of Bounds Raycasting
 const SceneManager = {
   activeMap: [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -20,6 +21,14 @@ const SceneManager = {
     [1,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,0,1],
     [1,0,0,1,1,0,0,0,0,1,1,0,0,0,0,0,1,1,0,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1],
+    [1,1,1,1,0,0,1,1,1,1,0,0,1,0,1,0,0,0,0,1],
+    [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,1,0,1],
+    [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,1,1,0,1],
+    [1,0,1,1,1,0,1,0,0,1,0,0,1,1,1,0,0,0,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,0,0,0,1],
+    [1,0,0,0,1,0,0,0,0,0,0,0,1,0,1,0,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
   ]
 };
@@ -34,7 +43,6 @@ const toggleMobileCheckbox = document.getElementById('toggle-mobile-controls');
 const log = document.getElementById('spell-log');
 const recastLog = document.getElementById('recast-log');
 
-// Dicionário de vinculação Tecla -> Elemento Virtual para Animação
 const keyButtonMap = {
   'w': 'mobile-up', 's': 'mobile-down', 'a': 'mobile-left', 'd': 'mobile-right',
   'arrowleft': 'mobile-rotate-left', 'arrowright': 'mobile-rotate-right',
@@ -78,44 +86,36 @@ export function toggleGrimoire(open) {
   }
 }
 
-// Execução de Habilidades por Slot (Ações Universais)
 function executeAction1() {
   if (gameState === 'PAUSED' && grimoireMenu.style.display !== 'flex') return;
   if (grimoireMenu.style.display === 'flex') { toggleGrimoire(false); return; }
 
   switch(Inventory.activeIndex) {
-    case 0: // Caderno -> Abre painel de desenho
-      toggleSpellMode();
-      break;
-    case 1: // Grimório -> Abre painel de guias
-      toggleGrimoire(true);
-      break;
-    case 2:
-      log.textContent = "Ação 1 indisponível."; log.style.color = "#aaa";
-      break;
+    case 0: toggleSpellMode(); break;
+    case 1: toggleGrimoire(true); break;
+    case 2: log.textContent = "Ação 1 inativa."; log.style.color = "#aaa"; break;
   }
 }
 
 function executeAction2() {
   if (gameState === 'PAUSED') return;
 
-  // Se a tela de desenho estiver ativa, o botão confirma e une as runas
   if (document.getElementById('spell-overlay').style.display === 'flex') {
     appendCurrentRune(true); 
     return;
   }
 
   switch(Inventory.activeIndex) {
-    case 0: // Caderno -> Recast Instantâneo sem travar movimento
+    case 0: 
       if (!cacheSpell) {
         log.textContent = "Cache Vazio!"; log.style.color = "#ff5500";
         return;
       }
-      log.textContent = `Disparo: ${cacheSpell.spellId} (${cacheSpell.accuracy}%)`;
+      log.textContent = `Disparo Rápido: ${cacheSpell.spellId}`;
       log.style.color = "#a0f";
       break;
     case 1:
-      log.textContent = "Grimório não possui ação secundária."; log.style.color = "#8a6d3b";
+      log.textContent = "Grimório sem ação secundária."; log.style.color = "#a68a56";
       break;
   }
 }
@@ -125,7 +125,10 @@ function setActiveSlot(index) {
   Inventory.activeIndex = index;
   for (let i = 0; i <= 2; i++) {
     const slot = document.getElementById(`slot-${i}`);
-    if (slot) slot.style.borderColor = (i === index) ? '#0ff' : '#555';
+    if (slot) {
+      if (i === index) slot.classList.add('slot-active');
+      else slot.classList.remove('slot-active');
+    }
   }
   document.getElementById('item-log').textContent = `Equipado: ${Inventory.slots[index].name}`;
 }
@@ -144,7 +147,6 @@ for (let i = 0; i <= 2; i++) {
   document.getElementById(`slot-${i}`)?.addEventListener('click', () => setActiveSlot(i));
 }
 
-// Gerenciamento e Animação de Teclas Físicas
 window.addEventListener('keydown', e => {
   animateKey(e.key, true);
   if (e.key === 'Escape') togglePause();
@@ -153,22 +155,19 @@ window.addEventListener('keydown', e => {
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); executeAction2(); }
 });
 
-window.addEventListener('keyup', e => {
-  animateKey(e.key, false);
-});
+window.addEventListener('keyup', e => { animateKey(e.key, false); });
 
 onSpellCast((spellResult) => {
   if (!spellResult || spellResult.spellId === 'Falha') {
     log.textContent = "Magia: Falha no traço"; log.style.color = "#f00";
     return;
   }
-  log.textContent = `Magia: ${spellResult.spellId} (Precisão: ${spellResult.accuracy}%)`;
+  log.textContent = `Último Feitiço: ${spellResult.spellId} (${spellResult.accuracy}%)`;
   log.style.color = "#0ff";
   cacheSpell = spellResult; 
   recastLog.textContent = `Recast Disponível: ${cacheSpell.spellId}`;
 });
 
-// Configuração das diretrizes de marcas-d'água do Grimório
 document.querySelectorAll('.guide-btn').forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -184,7 +183,6 @@ function gameLoop(timestamp) {
   if (deltaTime > 100) deltaTime = 16;
 
   if (gameState !== 'PAUSED') {
-    // A trava isChanneling foi eliminada: atualização de física liberada em 100% do loop
     updatePlayer(deltaTime, timeScale, SceneManager.activeMap);
   }
   
