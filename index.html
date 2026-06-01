@@ -10,12 +10,10 @@
     #game-container { position: relative; width: 100%; height: 100%; max-width: 800px; max-height: 600px; margin: 0 auto; background: #000; }
     canvas { width: 100%; height: 100%; image-rendering: pixelated; }
     
-    /* Padronização UI: Cinza Translúcido */
     .ui-panel { background: rgba(40, 40, 45, 0.7); border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(4px); border-radius: 6px; color: #ddd; }
     .slot { width: 45px; height: 45px; background: rgba(30, 30, 35, 0.8); border: 2px solid #555; color: #aaa; display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; transition: all 0.1s; border-radius: 4px; }
     .slot-active { border-color: #0ff; color: #0ff; background: rgba(0, 60, 60, 0.8); box-shadow: 0 0 8px rgba(0, 255, 255, 0.3); }
     
-    /* Padronização Grimório: Marrom Translúcido */
     .grimoire-panel { background: rgba(50, 35, 25, 0.85); border: 2px solid #b89962; backdrop-filter: blur(6px); font-family: Georgia, serif; color: #e2d7be; border-radius: 6px; }
     .grimoire-content { background: rgba(20, 15, 10, 0.7); padding: 15px; border-radius: 4px; box-shadow: inset 0 0 20px rgba(0,0,0,0.6); border: 1px solid #7a5c32; }
     .runa-row { display: flex; align-items: center; margin-bottom: 12px; border-bottom: 1px solid rgba(184, 153, 98, 0.3); padding-bottom: 8px; }
@@ -37,7 +35,6 @@
     </div>
     
     <div id="hud" class="ui-panel" style="position: absolute; top: 12px; left: 12px; z-index: 10; padding: 15px; min-width: 240px; display: flex; flex-direction: column; gap: 8px;">
-      
       <div id="status-bars" style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px;">
         <div style="width: 100%; height: 16px; background: rgba(10,10,10,0.8); border: 1px solid #555; border-radius: 3px; overflow: hidden;">
           <div style="width: 100%; height: 100%; background: linear-gradient(90deg, #800, #e00);"></div>
@@ -46,7 +43,6 @@
           <div style="width: 100%; height: 100%; background: linear-gradient(90deg, #006, #09f);"></div>
         </div>
       </div>
-
       <div id="map-log" style="color: #fa0; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">Mundo Aberto</div>
       <div id="item-log" style="color: #ddd; font-size: 13px;">Equipado: Caderno de Magias</div>
       <div id="spell-log" style="color: #0ff; font-size: 13px;">Último Feitiço: Nenhum</div>
@@ -69,7 +65,6 @@
         <button id="mobile-down" class="ui-panel" style="grid-column: 2; grid-row: 2; width: 55px; height: 55px; font-weight:bold;">S</button>
         <button id="mobile-right" class="ui-panel" style="grid-column: 3; grid-row: 2; width: 55px; height: 55px; font-weight:bold;">D</button>
       </div>
-      
       <div id="mobile-rotation" style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: auto;">
         <div style="display: flex; gap: 6px;">
           <button id="action1-btn" style="width: 85px; height: 55px; background: #0ff; color: #000; font-weight: bold; border: none; border-radius:6px;">AÇÃO 1</button>
@@ -84,7 +79,6 @@
 
     <div id="pause-menu" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 15, 20, 0.95); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 300; overflow-y: auto; padding: 20px 0;">
       <h2 style="color: #fff; font-size: 22px; margin: 0 0 20px 0; letter-spacing: 2px;">SISTEMA PAUSADO</h2>
-      
       <div class="ui-panel" style="width: 90%; max-width: 500px; padding: 20px; margin-bottom: 15px; font-size: 13px; line-height: 1.6;">
         <h3 style="margin: 0 0 12px 0; color: #0ff; font-size: 15px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 6px;">Manual de Controles</h3>
         <span style="color:#fa0; font-weight:bold;">W, A, S, D:</span> Movimentação da entidade.<br>
@@ -94,7 +88,6 @@
         <span style="color:#f0f; font-weight:bold;">AÇÃO 2 (Espaço/Enter):</span> Interação Secundária (Disparo Rápido).<br>
         <span style="color:#aaa; font-weight:bold;">Teclas 1, 2, 3:</span> Troca rápida de slots.
       </div>
-
       <div class="ui-panel" style="width: 90%; max-width: 500px; padding: 20px; margin-bottom: 25px; font-size: 13px; line-height: 1.6;">
         <h3 style="margin: 0 0 12px 0; color: #0ff; font-size: 15px; text-transform: uppercase; border-bottom: 1px solid rgba(255,255,255,0.15); padding-bottom: 6px;">Inventário de Módulo</h3>
         <strong style="color:#fff;">[1] Caderno de Magias:</strong><br>
@@ -104,7 +97,6 @@
         &nbsp;&bull; AÇÃO 1: Abre a enciclopédia visual de glifos base.<br>
         <strong style="color:#fff;">[3] Mão Vazia:</strong> Módulo inativo.
       </div>
-
       <label style="color: #ddd; margin-bottom: 20px; font-size: 14px; cursor: pointer; display: flex; align-items: center; font-weight:bold;">
         <input type="checkbox" id="toggle-mobile-controls" checked style="transform: scale(1.4); margin-right: 12px;">
         Exibir Overlay Virtual
@@ -117,31 +109,23 @@
         <h2 style="color: #b89962; font-size: 24px; margin: 0 0 25px 0; text-shadow: 0 2px 4px rgba(0,0,0,0.8); letter-spacing: 1px;">ÍNDICE DE SINTRA</h2>
         
         <div class="grimoire-content" style="width: 100%; box-sizing: border-box;">
-          <div class="runa-row">
-            <div class="runa-symbol">A</div>
-            <div style="flex:1; font-size: 14px; line-height:1.5;">Sinalizador de conjuração primária.</div>
-            <button class="guide-btn" data-rune="A">Visualizar</button>
-          </div>
-          <div class="runa-row">
-            <div class="runa-symbol">E</div>
-            <div style="flex:1; font-size: 14px; line-height:1.5;">Sinalizador de alteração ambiental.</div>
-            <button class="guide-btn" data-rune="E">Visualizar</button>
-          </div>
-          <div class="runa-row">
-            <div class="runa-symbol">I</div>
-            <div style="flex:1; font-size: 14px; line-height:1.5;">Sinalizador de projeção reta.</div>
-            <button class="guide-btn" data-rune="I">Visualizar</button>
-          </div>
-          <div class="runa-row">
-            <div class="runa-symbol">O</div>
-            <div style="flex:1; font-size: 14px; line-height:1.5;">Sinalizador de retração absoluta.</div>
-            <button class="guide-btn" data-rune="O">Visualizar</button>
-          </div>
-          <div class="runa-row" style="border-bottom: none; margin-bottom:0; padding-bottom:0;">
-            <div class="runa-symbol">U</div>
-            <div style="flex:1; font-size: 14px; line-height:1.5;">Sinalizador de dispersão concêntrica.</div>
-            <button class="guide-btn" data-rune="U">Visualizar</button>
-          </div>
+          <h3 style="color: #fff; font-size: 16px; margin: 0 0 10px 0; border-bottom: 1px solid #7a5c32;">Elementos</h3>
+          <div class="runa-row"><div class="runa-symbol">A</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Fogo:</strong> Dano térmico, aumenta custo de mana.</div><button class="guide-btn" data-rune="A">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">E</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Terra:</strong> Aumenta armadura, tamanho e duração.</div><button class="guide-btn" data-rune="E">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">I</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Raio:</strong> Dano massivo, alta velocidade, reduz recarga.</div><button class="guide-btn" data-rune="I">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">O</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Água:</strong> Cura instantânea, regeneração contínua.</div><button class="guide-btn" data-rune="O">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">U</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Arcano:</strong> Regen de mana, velocidade de movimento.</div><button class="guide-btn" data-rune="U">Guia</button></div>
+          
+          <h3 style="color: #fff; font-size: 16px; margin: 15px 0 10px 0; border-bottom: 1px solid #7a5c32;">Formas</h3>
+          <div class="runa-row"><div class="runa-symbol">V</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Projétil:</strong> Dispara a magia em linha reta.</div><button class="guide-btn" data-rune="V">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">C</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Self/Toque:</strong> Aplica efeitos diretamente no conjurador.</div><button class="guide-btn" data-rune="C">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">S</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Barreira:</strong> Cria uma obstrução fixa no ambiente.</div><button class="guide-btn" data-rune="S">Guia</button></div>
+          
+          <h3 style="color: #fff; font-size: 16px; margin: 15px 0 10px 0; border-bottom: 1px solid #7a5c32;">Modificadores</h3>
+          <div class="runa-row"><div class="runa-symbol">M</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Magnitude:</strong> Amplia tamanho, duração e custo.</div><button class="guide-btn" data-rune="M">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">N</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Celeridade:</strong> Aumenta velocidade e diminui cooldown.</div><button class="guide-btn" data-rune="N">Guia</button></div>
+          <div class="runa-row"><div class="runa-symbol">D</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Impacto:</strong> Multiplica dano e resistência.</div><button class="guide-btn" data-rune="D">Guia</button></div>
+          <div class="runa-row" style="border-bottom: none; margin-bottom:0; padding-bottom:0;"><div class="runa-symbol">W</div><div style="flex:1; font-size: 14px; line-height:1.5;"><strong>Vitalidade:</strong> Amplifica os efeitos de cura e regeneração.</div><button class="guide-btn" data-rune="W">Guia</button></div>
         </div>
         
         <button id="close-grimoire-btn" style="margin-top: 30px; padding: 12px 35px; background: #7a5c32; color: #e2d7be; border: 1px solid #b89962; font-family: inherit; font-weight: bold; cursor: pointer; border-radius: 4px; font-size: 14px; transition: background 0.1s;">Cerrar Livro</button>

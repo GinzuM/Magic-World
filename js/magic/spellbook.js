@@ -1,24 +1,48 @@
 export const SpellRegistry = {
-  'A': { id: 'A', name: 'Ignis' },
-  'E': { id: 'E', name: 'Terra' },
-  'I': { id: 'I', name: 'Fulgur' },
-  'O': { id: 'O', name: 'Aegis' },
-  'U': { id: 'U', name: 'Aqua' }
+  // Elementos Base (Definem a natureza da magia)
+  'A': { id: 'A', type: 'element', name: 'Fogo' },
+  'E': { id: 'E', type: 'element', name: 'Terra' },
+  'I': { id: 'I', type: 'element', name: 'Raio' },
+  'O': { id: 'O', type: 'element', name: 'Água' },
+  'U': { id: 'U', type: 'element', name: 'Arcano/Vento' },
+  
+  // Formas de Conjuração (Definem como a magia se manifesta no espaço)
+  'V': { id: 'V', type: 'form', name: 'Projétil Arremessável' },
+  'C': { id: 'C', type: 'form', name: 'Self/Toque' },
+  'S': { id: 'S', type: 'form', name: 'Barreira Física' },
+  
+  // Modificadores de Atributo (Escalam os stats da magia)
+  'M': { id: 'M', type: 'mod', name: 'Magnitude (Tamanho/Duração/Custo)' },
+  'N': { id: 'N', type: 'mod', name: 'Celeridade (Velocidade/Redução CD)' },
+  'D': { id: 'D', type: 'mod', name: 'Impacto (Dano/Armadura)' },
+  'W': { id: 'W', type: 'mod', name: 'Vitalidade (Cura/Regeneração)' }
 };
 
 const NUM_POINTS = 64;
 const SQUARE_SIZE = 100;
 
+// Geometrias unistroke calibradas para 12 símbolos
 const rawTemplates = {
-  'A': [{x: 20, y: 90}, {x: 50, y: 10}, {x: 80, y: 90}],
-  'E': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 50}, {x: 60, y: 50}, {x: 20, y: 50}, {x: 20, y: 80}, {x: 80, y: 80}],
-  'I': [{x: 50, y: 10}, {x: 50, y: 90}],
-  'U': [{x: 20, y: 20}, {x: 20, y: 70}, {x: 40, y: 90}, {x: 60, y: 90}, {x: 80, y: 70}, {x: 80, y: 20}]
+  // Elementos
+  'A': [{x: 20, y: 90}, {x: 50, y: 10}, {x: 80, y: 90}], // Triângulo subindo
+  'E': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 50}, {x: 60, y: 50}, {x: 20, y: 50}, {x: 20, y: 80}, {x: 80, y: 80}], // C invertido
+  'I': [{x: 50, y: 10}, {x: 50, y: 90}], // Reta vertical
+  'U': [{x: 20, y: 20}, {x: 20, y: 70}, {x: 40, y: 90}, {x: 60, y: 90}, {x: 80, y: 70}, {x: 80, y: 20}], // Curva U
+  
+  // Formas
+  'V': [{x: 20, y: 20}, {x: 50, y: 90}, {x: 80, y: 20}], // Reta descendo e subindo
+  'C': [{x: 80, y: 20}, {x: 40, y: 20}, {x: 20, y: 40}, {x: 20, y: 60}, {x: 40, y: 80}, {x: 80, y: 80}], // Meio círculo esquerda
+  'S': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 50}, {x: 80, y: 50}, {x: 80, y: 80}, {x: 20, y: 80}], // Curva S/Z
+  
+  // Modificadores
+  'M': [{x: 20, y: 90}, {x: 20, y: 20}, {x: 50, y: 50}, {x: 80, y: 20}, {x: 80, y: 90}], // Sobe desce
+  'N': [{x: 20, y: 90}, {x: 20, y: 20}, {x: 80, y: 90}, {x: 80, y: 20}], // Zigue-zague lateral
+  'D': [{x: 30, y: 20}, {x: 30, y: 80}, {x: 60, y: 80}, {x: 80, y: 60}, {x: 80, y: 40}, {x: 60, y: 20}, {x: 30, y: 20}], // Reta vertical + arco fechado
+  'W': [{x: 20, y: 20}, {x: 35, y: 90}, {x: 50, y: 50}, {x: 65, y: 90}, {x: 80, y: 20}] // Duplo V
 };
 
 export const Templates = {};
 
-// Processamento Geométrico Proporcional (Evita distorção de linhas finas como a letra 'I')
 function processGesture(points) {
   let resampled = resample(points, NUM_POINTS);
   let bounds = calculateBoundingBox(resampled);
@@ -38,7 +62,7 @@ for (let i = 0; i < NUM_POINTS; i++) {
   const angle = (i / NUM_POINTS) * Math.PI * 2;
   circlePoints.push({ x: 50 + 50 * Math.cos(angle), y: 50 + 50 * Math.sin(angle) });
 }
-Templates['O'] = processGesture(circlePoints);
+Templates['O'] = processGesture(circlePoints); // Letra O gerada trigonometricamente
 
 export function compileSpell(strokePath) {
   if (!strokePath || strokePath.length < 2) return null;
@@ -52,7 +76,7 @@ function recognize(points) {
   let bestScore = Infinity; 
 
   for (const [id, templatePoints] of Object.entries(Templates)) {
-    const isClosed = (id === 'O');
+    const isClosed = (id === 'O' || id === 'D');
     let d = pathDistance(points, templatePoints, isClosed);
     if (d < bestScore) {
       bestScore = d;
@@ -60,12 +84,12 @@ function recognize(points) {
     }
   }
 
-  // O threshold foi ampliado porque a escala proporcional agora garante que a forma não distorça
-  const threshold = 65; 
+  // Threshold reduzido levemente para exigir precisão caligráfica num dicionário maior (12 glifos)
+  const threshold = 60; 
   const score = Math.max(0, 1.0 - (bestScore / threshold));
 
   return { 
-    spellId: score > 0.40 ? bestMatch : 'Falha', 
+    spellId: score > 0.45 ? bestMatch : 'Falha', 
     accuracy: (score * 100).toFixed(0) 
   };
 }

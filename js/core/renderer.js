@@ -15,9 +15,9 @@ function degToRad(deg) {
 export function castRays(map) {
   const isDungeon = SceneManager.isDungeon;
   
-  ctx.fillStyle = isDungeon ? '#020202' : '#050505'; 
+  ctx.fillStyle = isDungeon ? '#030307' : '#05070a'; 
   ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
-  ctx.fillStyle = isDungeon ? '#0a0a0a' : '#0a0a0a'; 
+  ctx.fillStyle = isDungeon ? '#0e0c0a' : '#0c0f0a'; 
   ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
 
   const ZBuffer = new Float64Array(canvas.width);
@@ -88,14 +88,14 @@ export function castRays(map) {
     let color;
     if (hitType === 1) { 
       if (isDungeon) {
-        color = side === 1 ? '#333333' : '#444444';
+        color = side === 1 ? '#2c2c30' : '#3a3a40';
       } else {
-        color = side === 1 ? '#004444' : '#006666';
+        color = side === 1 ? '#0b3d30' : '#125443';
       }
     } else if (hitType === 2) { 
-      color = side === 1 ? '#6600cc' : '#8800ff';
+      color = side === 1 ? '#5200cc' : '#7300e6';
     } else if (hitType === 3) { 
-      color = side === 1 ? '#0088cc' : '#00aaff';
+      color = side === 1 ? '#007acc' : '#0099ff';
     }
 
     ctx.fillStyle = color;
@@ -141,7 +141,7 @@ function renderSprites(ZBuffer) {
 
       ctx.fillStyle = sprite.color;
       ctx.shadowColor = sprite.color;
-      ctx.shadowBlur = (sprite.isStatic) ? 0 : 20; 
+      ctx.shadowBlur = sprite.isStatic ? 0 : 25; 
 
       for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
         if (stripe >= 0 && stripe < canvas.width && transformY < ZBuffer[stripe]) {
