@@ -15,7 +15,6 @@ function degToRad(deg) {
 export function castRays(map) {
   const isDungeon = SceneManager.isDungeon;
   
-  // Teto e Chão dinâmicos baseados no ambiente
   ctx.fillStyle = isDungeon ? '#020202' : '#050505'; 
   ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
   ctx.fillStyle = isDungeon ? '#0a0a0a' : '#0a0a0a'; 
@@ -89,14 +88,14 @@ export function castRays(map) {
     let color;
     if (hitType === 1) { 
       if (isDungeon) {
-        color = side === 1 ? '#333333' : '#444444'; // Masmorra: Tons de rocha cinza
+        color = side === 1 ? '#333333' : '#444444';
       } else {
-        color = side === 1 ? '#004444' : '#006666'; // Mundo Aberto: Tons verde-musgo
+        color = side === 1 ? '#004444' : '#006666';
       }
     } else if (hitType === 2) { 
-      color = side === 1 ? '#6600cc' : '#8800ff'; // Portal de Descida: Roxo brilhante
+      color = side === 1 ? '#6600cc' : '#8800ff';
     } else if (hitType === 3) { 
-      color = side === 1 ? '#0088cc' : '#00aaff'; // Portal de Subida/Saída: Ciano brilhante
+      color = side === 1 ? '#0088cc' : '#00aaff';
     }
 
     ctx.fillStyle = color;
@@ -132,7 +131,7 @@ function renderSprites(ZBuffer) {
     if (transformY > 0) {
       const spriteScreenX = Math.floor((canvas.width / 2) * (1 + transformX / transformY));
       
-      const spriteScale = sprite.id === 'O' ? 0.6 : 0.15; 
+      const spriteScale = sprite.size || 0.15; 
       const spriteHeight = Math.abs(Math.floor(canvas.height / transformY)) * spriteScale;
       const spriteWidth = spriteHeight;
 
@@ -142,7 +141,7 @@ function renderSprites(ZBuffer) {
 
       ctx.fillStyle = sprite.color;
       ctx.shadowColor = sprite.color;
-      ctx.shadowBlur = sprite.id === 'E' ? 0 : 20; 
+      ctx.shadowBlur = (sprite.isStatic) ? 0 : 20; 
 
       for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
         if (stripe >= 0 && stripe < canvas.width && transformY < ZBuffer[stripe]) {
