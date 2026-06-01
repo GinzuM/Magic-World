@@ -10,6 +10,10 @@
     #game-container { position: relative; width: 100%; height: 100%; max-width: 800px; max-height: 600px; margin: 0 auto; background: #111; }
     canvas { width: 100%; height: 100%; image-rendering: pixelated; }
     .slot { width: 40px; height: 40px; background: rgba(0,0,0,0.6); border: 2px solid #555; color: #fff; display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; }
+    .menu-section { width: 90%; max-width: 500px; background: rgba(20, 20, 20, 0.9); border: 1px solid #555; padding: 15px; margin-bottom: 15px; color: #ccc; font-size: 12px; line-height: 1.4; box-sizing: border-box; }
+    .menu-section h3 { margin: 0 0 8px 0; color: #0ff; font-size: 14px; text-transform: uppercase; border-bottom: 1px solid #333; padding-bottom: 3px; }
+    .runa-row { display: flex; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 5px; }
+    .runa-symbol { font-size: 20px; font-weight: bold; color: #f0f; width: 30px; text-align: center; margin-right: 15px; text-shadow: 0 0 5px #f0f; }
   </style>
 </head>
 <body>
@@ -21,7 +25,7 @@
       <div id="spell-log" style="color: #0ff; margin-top: 5px;">Magia: Nenhuma</div>
     </div>
 
-    <button id="menu-btn" style="position: absolute; top: 10px; right: 10px; z-index: 20; padding: 10px; background: #333; color: #fff; border: 1px solid #fff; font-family: inherit;">Menu (ESC)</button>
+    <button id="menu-btn" style="position: absolute; top: 10px; right: 10px; z-index: 20; padding: 10px; background: #333; color: #fff; border: 1px solid #fff; font-family: inherit; cursor: pointer;">Menu (ESC)</button>
 
     <div id="hotbar" style="position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 10;">
       <div id="slot-0" class="slot">1</div>
@@ -50,13 +54,60 @@
       </div>
     </div>
 
-    <div id="pause-menu" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 300;">
-      <h2 style="color: #fff; font-size: 24px; margin-bottom: 20px;">JOGO PAUSADO</h2>
-      <label style="color: #fff; margin-bottom: 20px; font-size: 16px; cursor: pointer;">
-        <input type="checkbox" id="toggle-mobile-controls" checked style="transform: scale(1.5); margin-right: 10px;">
-        Mostrar Controles Mobile
+    <div id="pause-menu" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.9); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 300; overflow-y: auto; padding: 20px 0;">
+      <h2 style="color: #fff; font-size: 20px; margin: 0 0 15px 0; text-shadow: 0 0 10px #fff;">JOGO PAUSADO</h2>
+      
+      <div class="menu-section">
+        <h3>Manual de Controles</h3>
+        <strong>W, A, S, D / Direcionais Tela:</strong> Mover personagem (Frente, Esquerda, Trás, Direita).<br>
+        <strong>Setas Laterais / ← → Tela:</strong> Rotacionar câmera do jogador.<br>
+        <strong>Shift / Botão RUN:</strong> Sprint (Aumenta a velocidade em 1.8x).<br>
+        <strong>Tecla E / Botão MAGIA:</strong> Abre/Fecha o Caderno de Desenho (Slot 1 ativo).<br>
+        <strong>Space, Enter / Botão AÇÃO:</strong> Ativa habilidade do item na mão / Executa traço.<br>
+        <strong>Teclas 1, 2, 3 / Slots Hotbar:</strong> Troca item equipado.
+      </div>
+
+      <div class="menu-section">
+        <h3>Enciclopédia de Itens</h3>
+        <strong>[1] Caderno de Magias:</strong> Elemento de captura vetorial. Quando aberto, registre os glifos. Fora da tela de desenho, aperte AÇÃO (Space/Enter) para invocar um Recast instantâneo do último feitiço memorizado.<br>
+        <strong>[2] Grimório:</strong> Artefato ancestral de consulta. Pressione AÇÃO para projetar o índice de propriedades e efeitos rúnicos na tela.<br>
+        <strong>[3] Mão Vazia:</strong> Desativa interfaces de entrada e interações rúnicas.
+      </div>
+
+      <label style="color: #fff; margin-bottom: 15px; font-size: 14px; cursor: pointer; display: flex; align-items: center;">
+        <input type="checkbox" id="toggle-mobile-controls" checked style="transform: scale(1.3); margin-right: 10px;">
+        Exibir Controles Virtuais
       </label>
-      <button id="resume-btn" style="padding: 10px 30px; font-size: 16px; background: #fff; color: #000; border: none; cursor: pointer; font-family: inherit; font-weight: bold;">Continuar</button>
+      <button id="resume-btn" style="padding: 12px 40px; font-size: 14px; background: #fff; color: #000; border: none; cursor: pointer; font-family: inherit; font-weight: bold; box-shadow: 0 0 10px #fff;">Continuar</button>
+    </div>
+
+    <div id="grimoire-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(25, 15, 10, 0.95); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 250; border: 4px double #8a6d3b; box-sizing: border-box;">
+      <h2 style="color: #8a6d3b; font-size: 22px; margin: 0 0 20px 0; text-shadow: 0 0 3px #000;">GRIMÓRIO DE SINTRA</h2>
+      
+      <div style="width: 85%; max-width: 450px; background: #f4ecd8; color: #2b1d0c; padding: 20px; border-radius: 4px; box-shadow: inset 0 0 20px rgba(0,0,0,0.2), 0 0 15px rgba(0,0,0,0.5); font-family: Georgia, serif; max-height: 65%; overflow-y: auto;">
+        <div class="runa-row">
+          <div class="runa-symbol">A</div>
+          <div><strong>Ignis (Fogo):</strong> Conjura uma torrente de plasma térmico concentrado. Alto poder destrutivo linear. (Dano Base: 50)</div>
+        </div>
+        <div class="runa-row">
+          <div class="runa-symbol">E</div>
+          <div><strong>Terra (Geocinese):</strong> Manipula a densidade do solo. Ergue barreiras tectônicas ou gera abalos de impacto regional. (Dano Base: 40)</div>
+        </div>
+        <div class="runa-row">
+          <div class="runa-symbol">I</div>
+          <div><strong>Fulgur (Raio):</strong> Dispara uma descarga elétrica de alta frequência com propagação instantânea em linha reta. (Dano Base: 60)</div>
+        </div>
+        <div class="runa-row">
+          <div class="runa-symbol">O</div>
+          <div><strong>Aegis (Escudo):</strong> Projeta uma película rúnica absorvente que mitiga impactos e anula projéteis inimigos. (Absorção)</div>
+        </div>
+        <div class="runa-row">
+          <div class="runa-symbol">U</div>
+          <div><strong>Aqua (Hidrocinese):</strong> Dispara um jato fluido pressurizado de alta densidade cinética capaz de repelir alvos. (Dano Base: 30)</div>
+        </div>
+      </div>
+      
+      <button id="close-grimoire-btn" style="margin-top: 20px; padding: 10px 25px; background: #8a6d3b; color: #fff; border: 1px solid #2b1d0c; font-family: inherit; font-weight: bold; cursor: pointer;">Fechar Livro</button>
     </div>
 
     <div id="spell-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 30, 0.85); backdrop-filter: blur(6px); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 200;">
@@ -66,8 +117,8 @@
       </div>
       
       <div id="spell-controls" style="margin-top: 20px; display: flex; gap: 10px;">
-        <button id="close-spell-btn" style="background: #555; color: #fff; padding: 12px 20px; border: none; font-weight: bold;">Cancelar</button>
-        <button id="cast-spell-btn" style="background: #0a0; color: #fff; padding: 12px 25px; border: none; font-weight: bold;">Executar</button>
+        <button id="close-spell-btn" style="background: #555; color: #fff; padding: 12px 20px; border: none; font-weight: bold; cursor: pointer;">Cancelar</button>
+        <button id="cast-spell-btn" style="background: #0a0; color: #fff; padding: 12px 25px; border: none; font-weight: bold; cursor: pointer;">Executar</button>
       </div>
     </div>
   </div>

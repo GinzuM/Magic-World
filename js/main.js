@@ -28,14 +28,19 @@ let lastTime = performance.now();
 let timeScale = 1.0;
 let isChanneling = false;
 let channelingTimer = 0;
-let cacheSpell = null; // Armazenamento do último feitiço bem-sucedido
+let cacheSpell = null; 
 
 const pauseMenu = document.getElementById('pause-menu');
+const grimoireMenu = document.getElementById('grimoire-overlay');
 const mobileControls = document.getElementById('mobile-controls');
 const toggleMobileCheckbox = document.getElementById('toggle-mobile-controls');
 const log = document.getElementById('spell-log');
 
 function togglePause() {
+  if (grimoireMenu.style.display === 'flex') {
+    toggleGrimoire(false);
+    return;
+  }
   if (gameState === 'PLAYING') {
     gameState = 'PAUSED';
     pauseMenu.style.display = 'flex';
@@ -46,18 +51,32 @@ function togglePause() {
   }
 }
 
-// Centralização das Ações Contextuais do Inventário
-function triggerActiveItemAction() {
-  if (gameState === 'PAUSED') return;
+function toggleGrimoire(open) {
+  if (open && gameState === 'PLAYING') {
+    gameState = 'PAUSED';
+    grimoireMenu.style.display = 'flex';
+  } else {
+    gameState = 'PLAYING';
+    grimoireMenu.style.display = 'none';
+    lastTime = performance.now();
+  }
+}
 
-  // Se o painel de desenho estiver aberto, o botão de ação força a execução do traço atual
+function triggerActiveItemAction() {
+  if (gameState === 'PAUSED' && grimoireMenu.style.display !== 'flex') return;
+
   if (document.getElementById('spell-overlay').style.display === 'flex') {
     executeCompiledStroke();
     return;
   }
 
+  if (grimoireMenu.style.display === 'flex') {
+    toggleGrimoire(false);
+    return;
+  }
+
   switch(Inventory.activeIndex) {
-    case 0: // Caderno de Magias: Recast Rápido (sem abrir a tela)
+    case 0: 
       if (!cacheSpell) {
         log.textContent = "Cache vazio! Desenhe a magia primeiro.";
         log.style.color = "#ff5500";
@@ -69,14 +88,11 @@ function triggerActiveItemAction() {
       channelingTimer = 2000;
       break;
 
-    case 1: // Grimório: Ação de ativação direta
-      log.textContent = "Grimório Ativado: Escudo Rúnico Absorvente!";
-      log.style.color = "#ff00ff";
-      isChanneling = true;
-      channelingTimer = 1500;
+    case 1: 
+      toggleGrimoire(true);
       break;
 
-    case 2: // Mão Vazia
+    case 2: 
       log.textContent = "Mão Vazia: Nenhuma ação disponível.";
       log.style.color = "#aaa";
       break;
@@ -84,6 +100,7 @@ function triggerActiveItemAction() {
 }
 
 function setActiveSlot(index) {
+  if (document.getElementById('spell-overlay').style.display === 'flex' || grimoireMenu.style.display === 'flex') return;
   Inventory.activeIndex = index;
   for (let i = 0; i <= 2; i++) {
     const slot = document.getElementById(`slot-${i}`);
@@ -93,9 +110,9 @@ function setActiveSlot(index) {
   log.style.color = "#fff";
 }
 
-// Vinculação de Eventos de Interface
 document.getElementById('menu-btn')?.addEventListener('click', togglePause);
 document.getElementById('resume-btn')?.addEventListener('click', togglePause);
+document.getElementById('close-grimoire-btn')?.addEventListener('click', () => toggleGrimoire(false));
 document.getElementById('action-btn')?.addEventListener('click', triggerActiveItemAction);
 
 toggleMobileCheckbox?.addEventListener('change', (e) => {
@@ -113,7 +130,7 @@ window.addEventListener('keydown', e => {
     timeScale = toggleSpellMode();
   }
   if (e.key === ' ' || e.key === 'Enter') {
-    e.preventDefault(); // Impede scroll indesejado da página com o Space
+    e.preventDefault(); 
     triggerActiveItemAction();
   }
 });
@@ -130,7 +147,7 @@ onSpellCast((spellResult) => {
   }
   log.textContent = `Magia: ${spellResult.spellId} (Precisão: ${spellResult.accuracy}%)`;
   log.style.color = "#0ff";
-  cacheSpell = spellResult; // Alimenta o cache de recast
+  cacheSpell = spellResult; 
   isChanneling = true;
   channelingTimer = 3000; 
 });

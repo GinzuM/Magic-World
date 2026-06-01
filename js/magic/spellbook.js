@@ -9,7 +9,6 @@ export const SpellRegistry = {
 const NUM_POINTS = 64;
 const SQUARE_SIZE = 100;
 
-// Geradores de Geometria Unistroke
 const rawTemplates = {
   'A': [{x: 10, y: 90}, {x: 50, y: 10}, {x: 90, y: 90}],
   'E': [{x: 90, y: 10}, {x: 10, y: 10}, {x: 10, y: 50}, {x: 60, y: 50}, {x: 10, y: 50}, {x: 10, y: 90}, {x: 90, y: 90}],
@@ -19,7 +18,6 @@ const rawTemplates = {
 
 const Templates = {};
 
-// Compila os arrays brutos na mesma pipeline do jogador
 function compileTemplate(points) {
   let resampled = resample(points, NUM_POINTS);
   const bounds = calculateBoundingBox(resampled);
@@ -28,19 +26,16 @@ function compileTemplate(points) {
   return translateToOrigin(resampled, scaledBounds);
 }
 
-// Inicializa os templates na memória
 for (const [key, path] of Object.entries(rawTemplates)) {
   Templates[key] = compileTemplate(path);
 }
 
-// O círculo 'O' usa equação paramétrica para ser perfeito
 let circlePoints = [];
 for (let i = 0; i < NUM_POINTS; i++) {
   const angle = (i / NUM_POINTS) * Math.PI * 2;
   circlePoints.push({ x: 50 + 50 * Math.cos(angle), y: 50 + 50 * Math.sin(angle) });
 }
 Templates['O'] = compileTemplate(circlePoints);
-
 
 export function compileSpell(strokePath) {
   if (!strokePath || strokePath.length < 2) return null;
@@ -59,15 +54,15 @@ function recognize(points) {
   let bestScore = Infinity; 
 
   for (const [id, templatePoints] of Object.entries(Templates)) {
-    let d = pathDistance(points, templatePoints);
+    const isClosed = (id === 'O');
+    let d = pathDistance(points, templatePoints, isClosed);
     if (d < bestScore) {
       bestScore = d;
       bestMatch = id;
     }
   }
 
-  // O threshold define a rigidez da correção. 45 permite maior tolerância geométrica.
-  const threshold = 45; 
+  const threshold = 40; 
   const score = Math.max(0, 1.0 - (bestScore / threshold));
 
   return { 
@@ -76,12 +71,31 @@ function recognize(points) {
   };
 }
 
-function pathDistance(pts1, pts2) {
-  let d = 0;
-  for (let i = 0; i < pts1.length; i++) {
-    d += distance(pts1[i], pts2[i]);
+// Algoritmo de Distância Dinâmica O(N) para processamento robusto
+function pathDistance(pts1, pts2, isClosed) {
+  const n = pts1.length;
+  
+  if (isClosed) {
+    // Rotação cíclica completa: Encontra a menor distância em qualquer alinhamento angular
+    let minD = Infinity;
+    for (let shift = 0; shift < n; shift++) {
+      let d = 0;
+      for (let i = 0; i < n; i++) {
+        d += distance(pts1[(i + shift) % n], pts2[i]);
+      }
+      if (d < minD) minD = d;
+    }
+    return minD / n;
+  } else {
+    // Bidirecional: Suporta traçados executados na ordem inversa
+    let dForward = 0;
+    let dBackward = 0;
+    for (let i = 0; i < n; i++) {
+      dForward += distance(pts1[i], pts2[i]);
+      dBackward += distance(pts1[i], pts2[n - 1 - i]);
+    }
+    return Math.min(dForward, dBackward) / n;
   }
-  return d / pts1.length;
 }
 
 function resample(points, n) {
