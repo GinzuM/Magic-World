@@ -1,22 +1,27 @@
 export const SpellRegistry = {
-  'A': { id: 'A', name: 'Ignis', type: 'fire', baseDamage: 50 },
-  'E': { id: 'E', name: 'Terra', type: 'earth', baseDamage: 40 },
-  'I': { id: 'I', name: 'Fulgur', type: 'lightning', baseDamage: 60 },
-  'O': { id: 'O', name: 'Aegis', type: 'shield', baseDamage: 0 },
-  'U': { id: 'U', name: 'Aqua', type: 'water', baseDamage: 30 }
+  'A': { id: 'A', name: 'Ignis' },
+  'E': { id: 'E', name: 'Terra' },
+  'I': { id: 'I', name: 'Fulgur' },
+  'O': { id: 'O', name: 'Aegis' },
+  'U': { id: 'U', name: 'Aqua' }
 };
 
 const NUM_POINTS = 64;
 const SQUARE_SIZE = 100;
 
+// Geometrias unistroke simplificadas e otimizadas
 const rawTemplates = {
-  'A': [{x: 10, y: 90}, {x: 50, y: 10}, {x: 90, y: 90}],
-  'E': [{x: 90, y: 10}, {x: 10, y: 10}, {x: 10, y: 50}, {x: 60, y: 50}, {x: 10, y: 50}, {x: 10, y: 90}, {x: 90, y: 90}],
-  'I': [{x: 50, y: 10}, {x: 50, y: 90}],
-  'U': [{x: 10, y: 10}, {x: 10, y: 80}, {x: 30, y: 90}, {x: 70, y: 90}, {x: 90, y: 80}, {x: 90, y: 10}]
+  // A: Triângulo simples (subindo e descendo de forma fluida)
+  'A': [{x: 15, y: 85}, {x: 50, y: 15}, {x: 85, y: 85}],
+  // E: Forma em C quadrado invertido (Topo -> Esquerda -> Base)
+  'E': [{x: 80, y: 20}, {x: 20, y: 20}, {x: 20, y: 80}, {x: 80, y: 80}],
+  // I: Traço vertical limpo de cima para baixo
+  'I': [{x: 50, y: 15}, {x: 50, y: 85}],
+  // U: Ferradura simétrica
+  'U': [{x: 20, y: 20}, {x: 20, y: 75}, {x: 50, y: 85}, {x: 80, y: 75}, {x: 80, y: 20}]
 };
 
-const Templates = {};
+export const Templates = {};
 
 function compileTemplate(points) {
   let resampled = resample(points, NUM_POINTS);
@@ -62,21 +67,19 @@ function recognize(points) {
     }
   }
 
-  const threshold = 40; 
+  // Threshold em 55 amplia a tolerância do motor contra variações de tamanho e curvatura
+  const threshold = 55; 
   const score = Math.max(0, 1.0 - (bestScore / threshold));
 
   return { 
-    spellId: score > 0.45 ? bestMatch : 'Falha', 
+    spellId: score > 0.40 ? bestMatch : 'Falha', 
     accuracy: (score * 100).toFixed(0) 
   };
 }
 
-// Algoritmo de Distância Dinâmica O(N) para processamento robusto
 function pathDistance(pts1, pts2, isClosed) {
   const n = pts1.length;
-  
   if (isClosed) {
-    // Rotação cíclica completa: Encontra a menor distância em qualquer alinhamento angular
     let minD = Infinity;
     for (let shift = 0; shift < n; shift++) {
       let d = 0;
@@ -87,7 +90,6 @@ function pathDistance(pts1, pts2, isClosed) {
     }
     return minD / n;
   } else {
-    // Bidirecional: Suporta traçados executados na ordem inversa
     let dForward = 0;
     let dBackward = 0;
     for (let i = 0; i < n; i++) {
@@ -120,7 +122,6 @@ function resample(points, n) {
       D += d;
     }
   }
-  
   while (newPoints.length < n) {
     newPoints.push({ x: points[points.length - 1].x, y: points[points.length - 1].y });
   }
