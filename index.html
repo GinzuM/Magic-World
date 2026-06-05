@@ -14,18 +14,16 @@
     .slot { width: 45px; height: 45px; background: rgba(10, 15, 20, 0.8); border: 2px solid #333; color: #777; display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; transition: all 0.1s; border-radius: 4px; }
     .slot-active { border-color: #0ff; color: #0ff; background: rgba(0, 40, 40, 0.8); box-shadow: 0 0 10px rgba(0, 255, 255, 0.3); }
     
-    /* Layout do Grimório estilo Livro de Duas Páginas */
     .grimoire-book { width: 90%; max-width: 700px; height: 80%; background: #e2d7be; border-radius: 8px; display: flex; flex-direction: row; box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.8); position: relative; border: 4px solid #5c4726; }
     .book-spine { position: absolute; left: 50%; top: 0; bottom: 0; width: 40px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.2) 100%); z-index: 5; border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); }
     .page { flex: 1; padding: 30px; display: flex; flex-direction: column; overflow-y: auto; color: #2b1d0c; font-family: Georgia, serif; position: relative; z-index: 1; }
-    .page-title { font-size: 24px; color: #5c4726; border-bottom: 2px solid #a68a56; margin: 0 0 15px 0; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+    .page-title { font-size: 20px; color: #5c4726; border-bottom: 2px solid #a68a56; margin: 0 0 15px 0; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; min-height: 55px; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.2; }
     .page-image { width: 100%; height: 150px; background: #c8b99e; border: 2px solid #8a6d3b; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; font-size: 80px; font-weight: bold; color: #5c4726; box-shadow: inset 0 0 15px rgba(0,0,0,0.2); }
     .page-desc { font-size: 14px; line-height: 1.6; margin-bottom: 15px; }
     .page-stats { font-size: 13px; background: rgba(0,0,0,0.05); padding: 10px; border-left: 3px solid #8a6d3b; }
-    .page-nav-btn { background: transparent; border: none; font-size: 24px; color: #5c4726; cursor: pointer; padding: 10px; transition: transform 0.1s; }
+    .page-nav-btn { background: transparent; border: none; font-size: 24px; color: #5c4726; cursor: pointer; padding: 10px; transition: transform 0.1s; display: flex; align-items: center; }
     .page-nav-btn:active { transform: scale(0.9); }
     
-    /* Viewmodel da Mão */
     #hand-viewmodel { position: absolute; bottom: -20px; right: 15%; width: 250px; height: 300px; pointer-events: none; z-index: 5; transition: transform 0.1s ease-out; transform-origin: bottom center; }
     .vm-book { width: 100%; height: 100%; background: linear-gradient(135deg, #111 0%, #222 100%); border: 4px solid #0ff; border-radius: 10px 0 0 10px; transform: perspective(600px) rotateY(-30deg) rotateZ(10deg); box-shadow: -10px 20px 30px rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
     .vm-grimoire { width: 100%; height: 100%; background: linear-gradient(135deg, #4a3018 0%, #2b1d0c 100%); border: 4px solid #a68a56; border-radius: 10px 0 0 10px; transform: perspective(600px) rotateY(-30deg) rotateZ(10deg); box-shadow: -10px 20px 30px rgba(0,0,0,0.8); }
@@ -33,6 +31,9 @@
 
     .btn-active { background: #fff !important; color: #000 !important; transform: scale(0.95); }
     #mobile-controls button { transition: background 0.05s, transform 0.05s; }
+
+    .map-btn { background: #111; color: #0ff; border: 1px solid #0ff; width: 40px; height: 40px; font-size: 20px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; justify-content: center; align-items: center; }
+    .map-btn:active { background: #0ff; color: #000; }
   </style>
 </head>
 <body>
@@ -71,8 +72,11 @@
       <div id="recast-log" style="color: #f0f; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 6px;">Recast: Nenhum</div>
     </div>
 
-    <div id="beacon-indicator" style="display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,255,255,0.2); border: 1px solid #0ff; padding: 5px 15px; color: #0ff; font-weight: bold; z-index: 10; border-radius: 20px;">
-      Destino: <span id="beacon-distance">0</span>m
+    <div id="compass-container" style="display: none; position: absolute; top: 15px; left: 50%; transform: translateX(-50%); z-index: 10; text-align: center; flex-direction: column; align-items: center;">
+      <div id="compass-arrow" style="font-size: 32px; color: #0ff; text-shadow: 0 0 10px #0ff; transform-origin: center; line-height: 1;">▲</div>
+      <div style="background: rgba(0,255,255,0.15); border: 1px solid #0ff; padding: 2px 12px; border-radius: 12px; font-weight: bold; font-size: 13px; color: #0ff; margin-top: 4px; backdrop-filter: blur(2px);">
+        <span id="beacon-distance">0</span>m
+      </div>
     </div>
 
     <button id="menu-btn" class="ui-panel" style="position: absolute; top: 12px; right: 12px; z-index: 20; padding: 8px 15px; cursor: pointer;">Menu</button>
@@ -108,7 +112,7 @@
       <div class="grimoire-book">
         <div class="book-spine"></div>
         <div class="page left-page" id="grimoire-page-left">
-          <div style="display:flex; justify-content: space-between; margin-bottom: 20px;">
+          <div style="display:flex; justify-content: space-between; margin-bottom: 10px;">
             <button id="grim-prev" class="page-nav-btn">◄</button>
             <h2 class="page-title" id="gp-left-title">Carregando...</h2>
             <div style="width:40px;"></div>
@@ -119,7 +123,7 @@
           <button class="guide-btn" id="gp-left-guide" style="margin-top: auto;">Praticar Runa</button>
         </div>
         <div class="page right-page" id="grimoire-page-right">
-          <div style="display:flex; justify-content: space-between; margin-bottom: 20px;">
+          <div style="display:flex; justify-content: space-between; margin-bottom: 10px;">
             <div style="width:40px;"></div>
             <h2 class="page-title" id="gp-right-title">Carregando...</h2>
             <button id="grim-next" class="page-nav-btn">►</button>
@@ -134,7 +138,6 @@
     </div>
 
     <div id="spell-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(5, 10, 15, 0.95); display: none; justify-content: center; align-items: center; flex-direction: column; z-index: 200;">
-      
       <div id="live-spell-stats" style="width: 85%; max-width: 400px; background: rgba(0,255,255,0.1); border: 1px solid #0ff; border-radius: 4px; padding: 10px; margin-bottom: 15px; color: #fff; font-size: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
         <div style="grid-column: 1 / -1; color: #0ff; font-weight: bold; font-size: 16px; margin-bottom: 5px;">Fila: <span id="spell-sequence-display">Vazia</span></div>
         <div>Custo: <span id="preview-mana">0</span></div>
@@ -142,12 +145,10 @@
         <div>Dano: <span id="preview-dmg">0</span></div>
         <div>Tipo: <span id="preview-type">Nenhum</span></div>
       </div>
-
       <div id="overlay-canvas-container" class="ui-panel" style="width: 85%; max-width: 400px; aspect-ratio: 1/1; position: relative; padding: 0; overflow: hidden; border: 2px solid #0ff;">
         <div id="floating-spell-preview" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 50px; height: 50px; background: transparent; border-radius: 50%; box-shadow: 0 0 0px transparent; transition: all 0.3s; pointer-events: none;"></div>
         <canvas id="spell-canvas" style="position: absolute; top:0; left:0; width:100%; height:100%; background: transparent;"></canvas>
       </div>
-      
       <div id="spell-controls" style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;">
         <button id="close-spell-btn" style="background: #333; color: #fff; padding: 12px 15px; border: 1px solid #555; font-weight: bold; cursor: pointer; border-radius:4px;">Fechar</button>
         <button id="undo-spell-btn" style="background: #800; color: #fff; padding: 12px 15px; border: none; font-weight: bold; cursor: pointer; border-radius:4px;">Desfazer</button>
@@ -158,14 +159,32 @@
 
     <div id="map-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 280;">
       <div style="width: 90%; max-width: 600px; display: flex; justify-content: space-between; color: #0ff; font-weight: bold; margin-bottom: 10px;">
-        <span>Mapa Tático Global</span>
+        <span>Mapa Tático Global (500x500)</span>
         <span>Dungeons Restantes: <span id="map-total-dungeons">0</span></span>
       </div>
-      <div style="width: 90%; max-width: 600px; aspect-ratio: 1/1; background: #111; border: 2px solid #0ff; position: relative;">
-        <canvas id="world-map-canvas" style="width: 100%; height: 100%; image-rendering: pixelated; cursor: crosshair;"></canvas>
+      
+      <div style="width: 90%; max-width: 600px; aspect-ratio: 1/1; background: #111; border: 2px solid #0ff; position: relative; overflow: hidden;">
+        <canvas id="world-map-canvas" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: crosshair;"></canvas>
+        
+        <div style="position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 5px;">
+          <button id="map-zoom-in" class="map-btn">+</button>
+          <button id="map-zoom-out" class="map-btn">-</button>
+        </div>
+
+        <div id="map-info-panel" style="position: absolute; bottom: 10px; left: 10px; background: rgba(0,0,0,0.85); border: 1px solid #0ff; padding: 10px; color: #fff; font-size: 12px; pointer-events: none; border-radius: 4px;">
+          X: <span id="map-coord-x" style="color:#0ff;">0</span> | Y: <span id="map-coord-y" style="color:#0ff;">0</span><br>
+          <div style="margin-top: 5px; color: #aaa;">Dificuldade: <span id="map-hover-diff" style="color:#fff; font-weight:bold;">--</span></div>
+        </div>
       </div>
-      <div style="width: 90%; max-width: 600px; color: #aaa; font-size: 12px; margin-top: 10px; text-align: center;">
-        Clique em uma Dungeon para marcar o Beacon. Cores quentes = Alta Dificuldade.
+
+      <div style="width: 90%; max-width: 600px; color: #aaa; font-size: 12px; margin-top: 10px; text-align: center; display: flex; flex-direction: column; gap: 4px;">
+        <div><strong>Botão Esquerdo:</strong> Marcar Beacon | <strong>Botão Direito:</strong> Marcar como Concluída (X) | <strong>Arraste:</strong> Mover Câmera</div>
+        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 5px;">
+          <span style="color: #0f0;">■ Fácil</span>
+          <span style="color: #ff0;">■ Média</span>
+          <span style="color: #f80;">■ Difícil</span>
+          <span style="color: #f00;">■ Extrema</span>
+        </div>
       </div>
       <button id="close-map-btn" style="margin-top: 15px; padding: 10px 30px; background: #333; color: #fff; border: 1px solid #0ff; font-weight: bold; cursor: pointer;">Fechar Mapa</button>
     </div>

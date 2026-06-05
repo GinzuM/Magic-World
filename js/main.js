@@ -17,7 +17,9 @@ export const Inventory = {
 
 player.coins = 0;
 
-// Geração de Mundo e Dungeons
+// Geração de Mundo 500x500 e Dungeons
+const WORLD_SIZE = 500;
+
 const structures = [
   { w: 3, h: 3, data: [[1,1,1],[1,2,1],[1,0,1]] },
   { w: 5, h: 5, data: [[1,0,1,0,1],[0,0,0,0,0],[1,0,2,0,1],[0,0,0,0,0],[1,0,1,0,1]] },
@@ -30,13 +32,31 @@ function generateOverworld(size) {
     map[0][i] = 1; map[size - 1][i] = 1; map[i][0] = 1; map[i][size - 1] = 1;
   }
   
-  const numRuins = 400; 
+  // Templo Central (Labirinto/Santuário)
+  const centerSize = 30;
+  const cStart = Math.floor(size / 2) - Math.floor(centerSize / 2);
+  for(let y = 0; y < centerSize; y++) {
+    for(let x = 0; x < centerSize; x++) {
+      if (y === 0 || y === centerSize-1 || x === 0 || x === centerSize-1) {
+        // Porta de entrada no sul do templo
+        if (y === centerSize-1 && Math.abs(x - centerSize/2) < 3) map[cStart+y][cStart+x] = 0;
+        else map[cStart+y][cStart+x] = 1;
+      } else {
+        // Pilares internos
+        if (x % 4 === 0 && y % 4 === 0) map[cStart+y][cStart+x] = 1;
+      }
+    }
+  }
+
+  const numRuins = 200; 
   const dungeonsList = [];
   
   for (let i = 0; i < numRuins; i++) {
     let rx = Math.floor(Math.random() * (size - 20)) + 10;
     let ry = Math.floor(Math.random() * (size - 20)) + 10;
-    if(rx < 15 && ry < 15) continue; 
+    
+    // Evita spawnar dungeons dentro ou muito perto do templo central
+    if(Math.abs(rx - size/2) < 25 && Math.abs(ry - size/2) < 25) continue; 
     
     let struct = structures[Math.floor(Math.random() * structures.length)];
     let hasPortal = false;
@@ -78,10 +98,9 @@ function generateDungeonFloor(size, difficulty) {
       map[y][x] = 0; 
       floorTiles++; 
       
-      // Geração de Caixas(4) e Baús(5)
       let rand = Math.random() * 100;
-      if(rand < 3) map[y][x] = 4; // 3% de chance de caixa (bloqueio)
-      else if(rand < 3.5 && chests < 2) { map[y][x] = 5; chests++; } // Max 2 baús
+      if(rand < 3) map[y][x] = 4; // Caixa
+      else if(rand < 3.5 && chests < 2) { map[y][x] = 5; chests++; } // Baú
     }
     let dir = Math.floor(Math.random() * 4);
     if(dir === 0 && x < size - 2) x++;
@@ -90,13 +109,13 @@ function generateDungeonFloor(size, difficulty) {
     else if(dir === 3 && y > 1) y--;
   }
   
-  map[Math.floor(size/2)][Math.floor(size/2)] = 3; // Portal de Subir (Saída)
-  map[y][x] = 2; // Portal de Descer
+  map[Math.floor(size/2)][Math.floor(size/2)] = 3; 
+  map[y][x] = 2; 
   
   return { map, chests };
 }
 
-const worldData = generateOverworld(1000);
+const worldData = generateOverworld(WORLD_SIZE);
 
 export const SceneManager = {
   isDungeon: false,
@@ -104,19 +123,18 @@ export const SceneManager = {
   dungeonsList: worldData.dungeonsList,
   currentDungeonRef: null,
   dungeonData: { floors: [], currentFloor: 0, maxFloors: 0, totalChests: 0, foundChests: 0 },
-  savedOverworldCoords: { x: 5.5, y: 5.5 },
+  savedOverworldCoords: { x: WORLD_SIZE/2, y: WORLD_SIZE/2 },
   activeMap: worldData.map,
   
   enterPortal: function(type, px, py) {
     if (!this.isDungeon) {
-      // Procurando a referência da dungeon no mundo
       this.currentDungeonRef = this.dungeonsList.find(d => Math.abs(d.x - px) < 2 && Math.abs(d.y - py) < 2);
       if(!this.currentDungeonRef) return;
 
       this.savedOverworldCoords = { x: player.x, y: player.y };
       this.isDungeon = true;
       this.dungeonData.maxFloors = this.currentDungeonRef.maxFloors;
-      this.dungeonData.currentFloor = this.currentDungeonRef.maxFloors; // Inverte o andar inicial
+      this.dungeonData.currentFloor = this.currentDungeonRef.maxFloors; 
       this.dungeonData.floors = [];
       this.dungeonData.totalChests = 0;
       this.dungeonData.foundChests = 0;
@@ -129,11 +147,11 @@ export const SceneManager = {
       
       this.loadFloor();
     } else {
-      if (type === 'down') { // Vai para um andar menor
+      if (type === 'down') { 
         this.dungeonData.currentFloor--;
         if (this.dungeonData.currentFloor < 1) this.dungeonData.currentFloor = 1;
         this.loadFloor();
-      } else if (type === 'up') { // Vai para um andar maior
+      } else if (type === 'up') { 
         this.dungeonData.currentFloor++;
         if (this.dungeonData.currentFloor > this.dungeonData.maxFloors) {
           this.exitDungeon();
@@ -175,6 +193,10 @@ export const SceneManager = {
   }
 };
 
+// Spawn inicial no centro do mundo
+player.x = WORLD_SIZE / 2;
+player.y = WORLD_SIZE / 2;
+
 let lastTime = performance.now();
 let timeScale = 1.0;
 let cacheSpell = null; 
@@ -182,7 +204,14 @@ let globalCooldown = 0;
 let portalCooldown = 0;
 let beaconTarget = null;
 
-// UI Elements
+// Variáveis do Mapa Tático
+let mapZoom = 1.0;
+let mapOffsetX = 0;
+let mapOffsetY = 0;
+let isDraggingMap = false;
+let dragStartX = 0;
+let dragStartY = 0;
+
 const pauseMenu = document.getElementById('pause-menu');
 const grimoireMenu = document.getElementById('grimoire-overlay');
 const spellOverlay = document.getElementById('spell-overlay');
@@ -190,8 +219,8 @@ const mapOverlay = document.getElementById('map-overlay');
 const spellLog = document.getElementById('spell-log');
 const recastLog = document.getElementById('recast-log');
 const itemLog = document.getElementById('item-log');
+const mapCanvas = document.getElementById('world-map-canvas');
 
-// Grimoire Pagination Logic
 const grimEntries = Object.values(SpellRegistry).sort((a,b) => a.id.localeCompare(b.id));
 let grimPage = 0;
 
@@ -225,7 +254,6 @@ function updateGrimoireView() {
 document.getElementById('grim-prev')?.addEventListener('click', () => { if(grimPage > 0) { grimPage -= 2; updateGrimoireView(); }});
 document.getElementById('grim-next')?.addEventListener('click', () => { if(grimPage < grimEntries.length - 2) { grimPage += 2; updateGrimoireView(); }});
 
-// Viewmodel Controller
 function updateViewModel() {
   const vm = document.getElementById('vm-sprite');
   vm.className = '';
@@ -274,7 +302,6 @@ export function updateLivePreview(queueStr) {
   floatPreview.style.backgroundColor = stats.color;
 }
 
-// Interações Primárias e Secundárias
 function executeAction1() {
   if (gameState === 'PAUSED' && grimoireMenu.style.display !== 'flex' && mapOverlay.style.display !== 'flex') return;
   if (grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex') { toggleUI(false); return; }
@@ -283,7 +310,14 @@ function executeAction1() {
     case 0: toggleSpellMode(); break;
     case 1: toggleUI('grimoire'); updateGrimoireView(); break;
     case 2: spellLog.textContent = "Mão vazia. Nenhuma ação."; spellLog.style.color = "#aaa"; break;
-    case 3: toggleUI('map'); renderWorldMap(); break;
+    case 3: 
+      toggleUI('map'); 
+      // Centraliza a visão do mapa no jogador ao abrir
+      mapZoom = 1.5;
+      mapOffsetX = (mapCanvas.clientWidth / 2) - (player.x * mapZoom);
+      mapOffsetY = (mapCanvas.clientHeight / 2) - (player.y * mapZoom);
+      renderWorldMap(); 
+      break;
   }
 }
 
@@ -334,56 +368,170 @@ function toggleUI(menu) {
   }
 }
 
+// LÓGICA DO MAPA TÁTICO
+function getDiffColor(diff) {
+  if (diff < 25) return '#0f0';
+  if (diff < 50) return '#ff0';
+  if (diff < 75) return '#f80';
+  return '#f00';
+}
+
 function renderWorldMap() {
-  const c = document.getElementById('world-map-canvas');
-  const ctx = c.getContext('2d');
-  c.width = 1000; c.height = 1000;
+  const ctx = mapCanvas.getContext('2d');
+  mapCanvas.width = mapCanvas.clientWidth;
+  mapCanvas.height = mapCanvas.clientHeight;
   
   ctx.fillStyle = '#050505';
-  ctx.fillRect(0,0,1000,1000);
+  ctx.fillRect(0,0,mapCanvas.width, mapCanvas.height);
+
+  ctx.save();
+  ctx.translate(mapOffsetX, mapOffsetY);
+  ctx.scale(mapZoom, mapZoom);
+
+  // Grid
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = 1 / mapZoom;
+  for(let i=0; i<=WORLD_SIZE; i+=50) {
+    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, WORLD_SIZE); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(WORLD_SIZE, i); ctx.stroke();
+  }
 
   let remaining = 0;
   SceneManager.dungeonsList.forEach(d => {
     if (!d.cleared) remaining++;
-    ctx.fillStyle = d.cleared ? '#333' : `hsl(${120 - (d.difficulty * 1.2)}, 100%, 50%)`;
-    ctx.fillRect(d.x - 5, d.y - 5, 10, 10);
+    
+    // Desenha o bloco da dungeon
+    ctx.fillStyle = d.cleared ? '#222' : getDiffColor(d.difficulty);
+    ctx.fillRect(d.x - 2, d.y - 2, 4, 4);
+
+    // Se completada, desenha um X
+    if (d.cleared) {
+      ctx.strokeStyle = '#555';
+      ctx.lineWidth = 1 / mapZoom;
+      ctx.beginPath();
+      ctx.moveTo(d.x - 2, d.y - 2); ctx.lineTo(d.x + 2, d.y + 2);
+      ctx.moveTo(d.x + 2, d.y - 2); ctx.lineTo(d.x - 2, d.y + 2);
+      ctx.stroke();
+    }
+
+    // Marca o Beacon selecionado
+    if (beaconTarget && beaconTarget.x === d.x && beaconTarget.y === d.y) {
+      ctx.strokeStyle = '#0ff';
+      ctx.lineWidth = 1.5 / mapZoom;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 6, 0, Math.PI*2);
+      ctx.stroke();
+    }
   });
   
   document.getElementById('map-total-dungeons').textContent = remaining;
 
-  // Render Player
+  // Render Player se estiver no Overworld
   if (!SceneManager.isDungeon) {
     ctx.fillStyle = '#0ff';
     ctx.beginPath();
-    ctx.arc(player.x, player.y, 8, 0, Math.PI*2);
+    ctx.arc(player.x, player.y, 3, 0, Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+    ctx.beginPath();
+    // Indicador de visão no mapa
+    ctx.moveTo(player.x, player.y);
+    ctx.arc(player.x, player.y, 15, (player.angle - 30) * Math.PI/180, (player.angle + 30) * Math.PI/180);
     ctx.fill();
   }
 
-  // Clicar no mapa para setar beacon
-  c.onclick = (e) => {
-    const rect = c.getBoundingClientRect();
-    const scaleX = c.width / rect.width;
-    const scaleY = c.height / rect.height;
-    const clickX = (e.clientX - rect.left) * scaleX;
-    const clickY = (e.clientY - rect.top) * scaleY;
-    
-    let closest = null; let minDist = Infinity;
-    SceneManager.dungeonsList.forEach(d => {
-      let dist = Math.hypot(d.x - clickX, d.y - clickY);
-      if (dist < 40 && dist < minDist) { minDist = dist; closest = d; }
-    });
-    if (closest) beaconTarget = { x: closest.x, y: closest.y };
-  };
+  ctx.restore();
 }
 
-// Binds
+// Eventos do Mouse no Mapa
+mapCanvas.addEventListener('mousedown', (e) => {
+  if (e.button === 0 || e.button === 1) { 
+    isDraggingMap = true;
+    dragStartX = e.clientX - mapOffsetX;
+    dragStartY = e.clientY - mapOffsetY;
+  }
+});
+
+mapCanvas.addEventListener('mousemove', (e) => {
+  if (isDraggingMap) {
+    mapOffsetX = e.clientX - dragStartX;
+    mapOffsetY = e.clientY - dragStartY;
+    renderWorldMap();
+  }
+
+  // Conversão de coordenadas da tela para o mundo
+  const rect = mapCanvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+  
+  const worldX = (mouseX - mapOffsetX) / mapZoom;
+  const worldY = (mouseY - mapOffsetY) / mapZoom;
+
+  document.getElementById('map-coord-x').textContent = Math.floor(worldX);
+  document.getElementById('map-coord-y').textContent = Math.floor(worldY);
+
+  let hoverDiff = "--";
+  let color = "#fff";
+  SceneManager.dungeonsList.forEach(d => {
+    if (Math.hypot(d.x - worldX, d.y - worldY) < 4) {
+      hoverDiff = d.difficulty;
+      color = getDiffColor(d.difficulty);
+    }
+  });
+  const diffEl = document.getElementById('map-hover-diff');
+  diffEl.textContent = hoverDiff;
+  diffEl.style.color = color;
+});
+
+mapCanvas.addEventListener('mouseup', (e) => {
+  isDraggingMap = false;
+});
+mapCanvas.addEventListener('mouseleave', () => { isDraggingMap = false; });
+
+mapCanvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault(); // Botão direito: Marcar como concluído
+  const rect = mapCanvas.getBoundingClientRect();
+  const worldX = ((e.clientX - rect.left) - mapOffsetX) / mapZoom;
+  const worldY = ((e.clientY - rect.top) - mapOffsetY) / mapZoom;
+  
+  SceneManager.dungeonsList.forEach(d => {
+    if (Math.hypot(d.x - worldX, d.y - worldY) < 5) {
+      d.cleared = !d.cleared; // Toggle completed state
+      if (d.cleared && beaconTarget && beaconTarget.x === d.x && beaconTarget.y === d.y) beaconTarget = null;
+      renderWorldMap();
+    }
+  });
+});
+
+mapCanvas.addEventListener('click', (e) => {
+  if (isDraggingMap) return; // Previne clique no final do drag
+  const rect = mapCanvas.getBoundingClientRect();
+  const worldX = ((e.clientX - rect.left) - mapOffsetX) / mapZoom;
+  const worldY = ((e.clientY - rect.top) - mapOffsetY) / mapZoom;
+  
+  let closest = null; let minDist = Infinity;
+  SceneManager.dungeonsList.forEach(d => {
+    let dist = Math.hypot(d.x - worldX, d.y - worldY);
+    if (dist < 5 && dist < minDist) { minDist = dist; closest = d; }
+  });
+  if (closest && !closest.cleared) {
+    beaconTarget = { x: closest.x, y: closest.y };
+  } else if (!closest) {
+    beaconTarget = null; // Clicar no vazio limpa o beacon
+  }
+  renderWorldMap();
+});
+
+document.getElementById('map-zoom-in')?.addEventListener('click', () => { mapZoom = Math.min(mapZoom + 0.5, 4.0); renderWorldMap(); });
+document.getElementById('map-zoom-out')?.addEventListener('click', () => { mapZoom = Math.max(mapZoom - 0.5, 0.5); renderWorldMap(); });
+
+// Binds de UI
 document.getElementById('menu-btn')?.addEventListener('click', () => toggleUI('pause'));
 document.getElementById('resume-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-grimoire-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-map-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('action1-btn')?.addEventListener('click', executeAction1);
 document.getElementById('action2-btn')?.addEventListener('click', executeAction2);
-
 document.getElementById('undo-spell-btn')?.addEventListener('click', () => { undoLastRune(); });
 
 for (let i = 0; i <= 3; i++) {
@@ -399,7 +547,6 @@ window.addEventListener('keydown', e => {
   if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); executeAction2(); }
 });
 
-// Callback da captura mágica concluída
 onSpellCast((spellResult) => {
   if (!spellResult || spellResult.spellId === 'Falha') {
     spellLog.textContent = "Magia: Falha no traço"; spellLog.style.color = "#f00";
@@ -419,7 +566,6 @@ onSpellCast((spellResult) => {
   if (cd) globalCooldown = cd;
 });
 
-// Ações do Grimoire para ir pro modo Prática
 document.addEventListener('click', (e) => {
   if (e.target && e.target.classList.contains('guide-btn')) {
     window.activeWatermark = e.target.getAttribute('data-rune');
@@ -434,7 +580,7 @@ function processProjectileCollisions() {
     let py = Math.floor(p.y);
     if (SceneManager.activeMap[py] && SceneManager.activeMap[py][px] >= 4) {
       let blockType = SceneManager.activeMap[py][px];
-      SceneManager.activeMap[py][px] = 0; // Quebra o bloco
+      SceneManager.activeMap[py][px] = 0; 
       
       let coinsDrop = blockType === 5 ? 25 : 2;
       player.coins += coinsDrop;
@@ -444,7 +590,7 @@ function processProjectileCollisions() {
         SceneManager.dungeonData.foundChests++;
         SceneManager.updateDungeonHUD();
       }
-      p.life = 0; // Destrói o projétil ao impactar
+      p.life = 0; 
     }
   });
 }
@@ -462,16 +608,25 @@ function gameLoop(timestamp) {
     updateProjectiles(deltaTime, timeScale, SceneManager.activeMap);
     processProjectileCollisions();
 
-    // Beacon Logic
+    // Bússola Direcional (Beacon)
     if (beaconTarget && !SceneManager.isDungeon) {
-      let dist = Math.hypot(player.x - beaconTarget.x, player.y - beaconTarget.y);
-      document.getElementById('beacon-indicator').style.display = 'block';
+      let dx = beaconTarget.x - player.x;
+      let dy = beaconTarget.y - player.y;
+      let dist = Math.hypot(dx, dy);
+      
+      document.getElementById('compass-container').style.display = 'flex';
       document.getElementById('beacon-distance').textContent = Math.floor(dist);
+
+      let targetAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+      let relativeAngle = targetAngle - player.angle;
+      
+      // Ajusta para que 0 graus aponte para cima na UI
+      let arrowRotation = relativeAngle + 90;
+      document.getElementById('compass-arrow').style.transform = `rotate(${arrowRotation}deg)`;
     } else {
-      document.getElementById('beacon-indicator').style.display = 'none';
+      document.getElementById('compass-container').style.display = 'none';
     }
 
-    // Portals Collision Logic
     if (portalCooldown <= 0) {
       let px = Math.floor(player.x); let py = Math.floor(player.y);
       for(let dy=-1; dy<=1; dy++) {
