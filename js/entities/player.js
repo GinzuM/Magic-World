@@ -1,12 +1,17 @@
 export const player = {
   x: 5.5,
   y: 5.5,
+  z: 0, // Offset de altura da câmera (modificado pelo agachamento)
   angle: 0,
   
   // Atributos de Movimentação
   baseSpeed: 0.0525,
   sprintMultiplier: 1.8,
-  rotSpeed: 2.2,
+  crouchMultiplier: 0.4, // Lentidão ao abaixar
+  
+  // Estados Especiais
+  isMeditating: false,
+  isCrouching: false,
   
   // Atributos de RPG (HUD)
   hp: 100,
@@ -17,6 +22,7 @@ export const player = {
   manaRegen: 0.08,
   armor: 0,
   damageMod: 1.0,
+  coins: 0,
   
   // Multiplicadores de Magia (Buffs Temporários)
   speedBuff: 1.0,
@@ -53,19 +59,42 @@ function degToRad(deg) { return deg * Math.PI / 180; }
 export function updatePlayer(deltaTime, timeScale, map) {
   const timeMultiplier = (deltaTime / 16) * timeScale;
   
-  // 1. Processamento de Regeneração Passiva
+  // 1. Definição de Estados Pessoais
+  player.isCrouching = keys['control'] && !player.isMeditating;
+  
+  // Animação suave da altura da câmera (Z-offset)
+  const targetZ = player.isCrouching ? -150 : 0; 
+  player.z += (targetZ - player.z) * 0.2 * timeMultiplier;
+  
+  // 2. Processamento de Regeneração Passiva
+  let currentManaRegen = player.manaRegen * player.regenManaBuff;
+  if (player.isMeditating) {
+    currentManaRegen *= 1.5; // Multiplicador de Meditação
+  }
+
   if (player.hp < player.maxHp) {
     player.hp += player.hpRegen * player.regenHpBuff * timeMultiplier;
     if (player.hp > player.maxHp) player.hp = player.maxHp;
   }
   if (player.mana < player.maxMana) {
-    player.mana += player.manaRegen * player.regenManaBuff * timeMultiplier;
+    player.mana += currentManaRegen * timeMultiplier;
     if (player.mana > player.maxMana) player.mana = player.maxMana;
   }
 
-  // 2. Cálculo de Velocidade (Base + Sprint + Buff de Magia)
-  const currentSpeed = (keys['shift'] ? player.baseSpeed * player.sprintMultiplier : player.baseSpeed) * player.speedBuff * timeMultiplier;
-  const rot = player.rotSpeed * timeMultiplier;
+  // Se estiver meditando, bloqueia completamente os cálculos cinemáticos
+  if (player.isMeditating) return;
+
+  // 3. Cálculo de Velocidade (Base + Sprint/Crouch + Buff de Magia)
+  let moveMult = 1.0;
+  if (player.isCrouching) moveMult = player.crouchMultiplier;
+  else if (keys['shift']) moveMult = player.sprintMultiplier;
+
+  const currentSpeed = player.baseSpeed * moveMult * player.speedBuff * timeMultiplier;
+  
+  // Aplicação da Sensibilidade Dinâmica via UI Slider
+  const sensSlider = document.getElementById('sens-slider');
+  const sens = sensSlider ? parseFloat(sensSlider.value) : 2.2;
+  const rot = sens * timeMultiplier;
   
   let dx = 0, dy = 0;
 
@@ -86,20 +115,24 @@ export function updatePlayer(deltaTime, timeScale, map) {
     dy += Math.sin(degToRad(player.angle + 90)) * currentSpeed; 
   }
   
-  // 3. Rotação da Câmera
+  // 4. Rotação da Câmera
   if (keys['arrowleft']) player.angle = (player.angle - rot + 360) % 360;
   if (keys['arrowright']) player.angle = (player.angle + rot) % 360;
 
-  // 4. Detecção de Colisão Deslizante (Wall = 1, Floor = 0, Portals > 1)
+  // 5. Detecção de Colisão Deslizante
   const newX = player.x + dx;
   const newY = player.y + dy;
 
-  // Checa colisão em X
-  if (map[Math.floor(player.y)] && (map[Math.floor(player.y)][Math.floor(newX)] === 0 || map[Math.floor(player.y)][Math.floor(newX)] > 1)) {
+  // Função para checar passabilidade do bloco (Chão e Portais são passáveis, 4 e 5 são sólidos)
+  const isPassable = (x, y) => {
+    let block = map[Math.floor(y)] ? map[Math.floor(y)][Math.floor(x)] : 1;
+    return block === 0 || block === 2 || block === 3;
+  };
+
+  if (isPassable(newX, player.y)) {
     player.x = newX;
   }
-  // Checa colisão em Y
-  if (map[Math.floor(newY)] && (map[Math.floor(newY)][Math.floor(player.x)] === 0 || map[Math.floor(newY)][Math.floor(player.x)] > 1)) {
+  if (isPassable(player.x, newY)) {
     player.y = newY;
   }
 }

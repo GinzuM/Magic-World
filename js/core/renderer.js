@@ -15,10 +15,15 @@ function degToRad(deg) {
 export function castRays(map) {
   const isDungeon = SceneManager.isDungeon;
   
+  // Cálculo do deslocamento do horizonte baseado no eixo Z do jogador (Agachamento)
+  const pitch = player.z * 0.8; 
+  const horizon = (canvas.height / 2) + pitch;
+
+  // Renderização Dinâmica do Teto e Chão acompanhando a câmera
   ctx.fillStyle = isDungeon ? '#030307' : '#05070a'; 
-  ctx.fillRect(0, 0, canvas.width, canvas.height / 2);
+  ctx.fillRect(0, 0, canvas.width, horizon);
   ctx.fillStyle = isDungeon ? '#0e0c0a' : '#0c0f0a'; 
-  ctx.fillRect(0, canvas.height / 2, canvas.width, canvas.height / 2);
+  ctx.fillRect(0, horizon, canvas.width, canvas.height - horizon);
 
   const ZBuffer = new Float64Array(canvas.width);
   const halfFOV = FOV / 2;
@@ -83,7 +88,10 @@ export function castRays(map) {
     ZBuffer[x] = correctedDist;
 
     const lineHeight = (canvas.height / correctedDist);
-    const drawStart = -lineHeight / 2 + canvas.height / 2;
+    
+    // Aplicação da projeção de perspectiva no eixo Z para deslocar a parede
+    const zOffset = player.z / correctedDist;
+    const drawStart = -lineHeight / 2 + (canvas.height / 2) + zOffset;
     
     let color;
     if (hitType === 1) { 
@@ -92,9 +100,9 @@ export function castRays(map) {
       color = side === 1 ? '#5200cc' : '#7300e6';
     } else if (hitType === 3) { 
       color = side === 1 ? '#007acc' : '#0099ff';
-    } else if (hitType === 4) { // Caixa destrutível
+    } else if (hitType === 4) { 
       color = side === 1 ? '#8b5a2b' : '#a0522d';
-    } else if (hitType === 5) { // Baú
+    } else if (hitType === 5) { 
       color = side === 1 ? '#ffd700' : '#ffcc00';
     }
 
@@ -135,7 +143,9 @@ function renderSprites(ZBuffer) {
       const spriteHeight = Math.abs(Math.floor(canvas.height / transformY)) * spriteScale;
       const spriteWidth = spriteHeight;
 
-      const drawStartY = Math.floor(-spriteHeight / 2 + canvas.height / 2);
+      // Desloca o sprite no eixo Y acompanhando a câmera do jogador (Agachamento)
+      const zOffset = player.z / transformY;
+      const drawStartY = Math.floor(-spriteHeight / 2 + (canvas.height / 2)) + zOffset;
       const drawStartX = Math.floor(spriteScreenX - spriteWidth / 2);
       const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
 

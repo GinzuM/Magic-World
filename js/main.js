@@ -9,15 +9,15 @@ export const Inventory = {
   slots: [
     { id: 'spellbook', name: 'Caderno de Magias' },
     { id: 'grimoire', name: 'Grimório' },
-    { id: 'empty', name: 'Mão Vazia' },
-    { id: 'map', name: 'Mapa Tático Global' }
+    { id: 'map', name: 'Mapa Tático Global' },
+    { id: 'empty', name: 'Mão Vazia' }
   ],
-  activeIndex: 0
+  activeIndex: 3 // Começa com a mão vazia
 };
 
 player.coins = 0;
 
-// Geração de Mundo 500x500 e Dungeons
+// Geração de Mundo 500x500
 const WORLD_SIZE = 500;
 
 const structures = [
@@ -32,21 +32,19 @@ function generateOverworld(size) {
     map[0][i] = 1; map[size - 1][i] = 1; map[i][0] = 1; map[i][size - 1] = 1;
   }
   
-  // Templo Central (Labirinto/Santuário)
-  const centerSize = 30;
+  // Praça Central Aberta (Santuário de Spawn) - Evita a sensação de estar preso
+  const centerSize = 20;
   const cStart = Math.floor(size / 2) - Math.floor(centerSize / 2);
   for(let y = 0; y < centerSize; y++) {
     for(let x = 0; x < centerSize; x++) {
-      if (y === 0 || y === centerSize-1 || x === 0 || x === centerSize-1) {
-        // Porta de entrada no sul do templo
-        if (y === centerSize-1 && Math.abs(x - centerSize/2) < 3) map[cStart+y][cStart+x] = 0;
-        else map[cStart+y][cStart+x] = 1;
-      } else {
-        // Pilares internos
-        if (x % 4 === 0 && y % 4 === 0) map[cStart+y][cStart+x] = 1;
-      }
+      // Cria pilares espaçados ao redor do spawn em vez de paredes sólidas
+      if ((x === 0 || x === centerSize-1) && (y % 4 === 0)) map[cStart+y][cStart+x] = 1;
+      if ((y === 0 || y === centerSize-1) && (x % 4 === 0)) map[cStart+y][cStart+x] = 1;
     }
   }
+
+  // Limpa a área exata do jogador por segurança
+  map[Math.floor(size/2)][Math.floor(size/2)] = 0;
 
   const numRuins = 200; 
   const dungeonsList = [];
@@ -55,7 +53,7 @@ function generateOverworld(size) {
     let rx = Math.floor(Math.random() * (size - 20)) + 10;
     let ry = Math.floor(Math.random() * (size - 20)) + 10;
     
-    // Evita spawnar dungeons dentro ou muito perto do templo central
+    // Evita spawnar dungeons muito perto da praça central
     if(Math.abs(rx - size/2) < 25 && Math.abs(ry - size/2) < 25) continue; 
     
     let struct = structures[Math.floor(Math.random() * structures.length)];
@@ -193,7 +191,7 @@ export const SceneManager = {
   }
 };
 
-// Spawn inicial no centro do mundo
+// Spawn inicial no centro absoluto do mundo
 player.x = WORLD_SIZE / 2;
 player.y = WORLD_SIZE / 2;
 
@@ -223,6 +221,11 @@ const mapCanvas = document.getElementById('world-map-canvas');
 
 const grimEntries = Object.values(SpellRegistry).sort((a,b) => a.id.localeCompare(b.id));
 let grimPage = 0;
+
+// Atualização de UI de Configuração (Sensibilidade)
+document.getElementById('sens-slider')?.addEventListener('input', (e) => {
+  document.getElementById('sens-val').textContent = parseFloat(e.target.value).toFixed(1);
+});
 
 function updateGrimoireView() {
   const left = grimEntries[grimPage];
@@ -259,11 +262,12 @@ function updateViewModel() {
   vm.className = '';
   if (Inventory.activeIndex === 0) vm.className = 'vm-book';
   else if (Inventory.activeIndex === 1) vm.className = 'vm-grimoire';
-  else if (Inventory.activeIndex === 3) vm.className = 'vm-map';
+  else if (Inventory.activeIndex === 2) vm.className = 'vm-map';
+  else if (Inventory.activeIndex === 3) vm.className = 'vm-empty';
 }
 
 function setActiveSlot(index) {
-  if (spellOverlay.style.display === 'flex' || grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex') return;
+  if (player.isMeditating || spellOverlay.style.display === 'flex' || grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex') return;
   Inventory.activeIndex = index;
   for (let i = 0; i <= 3; i++) {
     const slot = document.getElementById(`slot-${i}`);
@@ -280,7 +284,7 @@ export function updateLivePreview(queueStr) {
   document.getElementById('spell-sequence-display').textContent = queueStr || 'Vazia';
   if (!queueStr) {
     document.getElementById('preview-mana').textContent = '0';
-    document.getElementById('preview-cd').textContent = '0';
+    document.getElementById('preview-cd').textContent = '0ms';
     document.getElementById('preview-dmg').textContent = '0';
     document.getElementById('preview-type').textContent = 'Nenhum';
     document.getElementById('floating-spell-preview').style.boxShadow = 'none';
@@ -289,39 +293,42 @@ export function updateLivePreview(queueStr) {
   
   const stats = calculateSpellStats(queueStr, 1.0);
   document.getElementById('preview-mana').textContent = stats.manaCost;
-  document.getElementById('preview-cd').textContent = stats.cooldown.toFixed(0);
+  document.getElementById('preview-cd').textContent = stats.cooldown.toFixed(0) + 'ms';
   document.getElementById('preview-dmg').textContent = stats.damage.toFixed(1);
   
-  let typeStr = "Aura";
-  if (stats.isProj) typeStr = "Projétil";
-  if (stats.isBarrier) typeStr = "Barreira";
+  let typeStr = "Aura (Self)";
+  if (stats.isProj) typeStr = "Projétil (Arremessável)";
+  if (stats.isBarrier) typeStr = "Barreira (Fixo)";
   document.getElementById('preview-type').textContent = typeStr;
 
   const floatPreview = document.getElementById('floating-spell-preview');
-  floatPreview.style.boxShadow = `0 0 30px 15px ${stats.color}`;
+  floatPreview.style.boxShadow = `0 0 40px 20px ${stats.color}`;
   floatPreview.style.backgroundColor = stats.color;
 }
 
 function executeAction1() {
+  if (player.isMeditating) return;
   if (gameState === 'PAUSED' && grimoireMenu.style.display !== 'flex' && mapOverlay.style.display !== 'flex') return;
   if (grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex') { toggleUI(false); return; }
 
   switch(Inventory.activeIndex) {
-    case 0: toggleSpellMode(); break;
-    case 1: toggleUI('grimoire'); updateGrimoireView(); break;
-    case 2: spellLog.textContent = "Mão vazia. Nenhuma ação."; spellLog.style.color = "#aaa"; break;
-    case 3: 
+    case 0: toggleSpellMode(); break; // Spellbook
+    case 1: toggleUI('grimoire'); updateGrimoireView(); break; // Grimoire
+    case 2: // Map
       toggleUI('map'); 
-      // Centraliza a visão do mapa no jogador ao abrir
-      mapZoom = 1.5;
+      mapZoom = 1.8;
       mapOffsetX = (mapCanvas.clientWidth / 2) - (player.x * mapZoom);
       mapOffsetY = (mapCanvas.clientHeight / 2) - (player.y * mapZoom);
       renderWorldMap(); 
+      break;
+    case 3: // Empty Hand
+      spellLog.textContent = "Mão vazia. Nenhuma ação."; spellLog.style.color = "#aaa"; 
       break;
   }
 }
 
 function executeAction2() {
+  if (player.isMeditating) return;
   if (gameState === 'PAUSED') return;
 
   if (spellOverlay.style.display === 'flex') {
@@ -336,9 +343,9 @@ function executeAction2() {
   }
 
   switch(Inventory.activeIndex) {
-    case 0: 
-      if (!cacheSpell) {
-        spellLog.textContent = "Cache Vazio!"; spellLog.style.color = "#ff5500";
+    case 0: // Spellbook Shoot
+      if (!cacheSpell || cacheSpell.spellId === 'Falha' || cacheSpell.spellId === '') {
+        spellLog.textContent = "Cache Mágico Vazio ou Inválido!"; spellLog.style.color = "#ff5500";
         return;
       }
       let cd = spawnProjectile(player, cacheSpell);
@@ -353,6 +360,7 @@ function executeAction2() {
 }
 
 function toggleUI(menu) {
+  if (player.isMeditating && menu) return; // Impede abrir menus meditando
   grimoireMenu.style.display = 'none';
   mapOverlay.style.display = 'none';
   pauseMenu.style.display = 'none';
@@ -400,11 +408,9 @@ function renderWorldMap() {
   SceneManager.dungeonsList.forEach(d => {
     if (!d.cleared) remaining++;
     
-    // Desenha o bloco da dungeon
     ctx.fillStyle = d.cleared ? '#222' : getDiffColor(d.difficulty);
     ctx.fillRect(d.x - 2, d.y - 2, 4, 4);
 
-    // Se completada, desenha um X
     if (d.cleared) {
       ctx.strokeStyle = '#555';
       ctx.lineWidth = 1 / mapZoom;
@@ -414,7 +420,6 @@ function renderWorldMap() {
       ctx.stroke();
     }
 
-    // Marca o Beacon selecionado
     if (beaconTarget && beaconTarget.x === d.x && beaconTarget.y === d.y) {
       ctx.strokeStyle = '#0ff';
       ctx.lineWidth = 1.5 / mapZoom;
@@ -426,7 +431,7 @@ function renderWorldMap() {
   
   document.getElementById('map-total-dungeons').textContent = remaining;
 
-  // Render Player se estiver no Overworld
+  // Render Player no Overworld
   if (!SceneManager.isDungeon) {
     ctx.fillStyle = '#0ff';
     ctx.beginPath();
@@ -434,7 +439,6 @@ function renderWorldMap() {
     ctx.fill();
     ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
     ctx.beginPath();
-    // Indicador de visão no mapa
     ctx.moveTo(player.x, player.y);
     ctx.arc(player.x, player.y, 15, (player.angle - 30) * Math.PI/180, (player.angle + 30) * Math.PI/180);
     ctx.fill();
@@ -443,7 +447,6 @@ function renderWorldMap() {
   ctx.restore();
 }
 
-// Eventos do Mouse no Mapa
 mapCanvas.addEventListener('mousedown', (e) => {
   if (e.button === 0 || e.button === 1) { 
     isDraggingMap = true;
@@ -459,7 +462,6 @@ mapCanvas.addEventListener('mousemove', (e) => {
     renderWorldMap();
   }
 
-  // Conversão de coordenadas da tela para o mundo
   const rect = mapCanvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
@@ -483,20 +485,18 @@ mapCanvas.addEventListener('mousemove', (e) => {
   diffEl.style.color = color;
 });
 
-mapCanvas.addEventListener('mouseup', (e) => {
-  isDraggingMap = false;
-});
+mapCanvas.addEventListener('mouseup', () => { isDraggingMap = false; });
 mapCanvas.addEventListener('mouseleave', () => { isDraggingMap = false; });
 
 mapCanvas.addEventListener('contextmenu', (e) => {
-  e.preventDefault(); // Botão direito: Marcar como concluído
+  e.preventDefault(); 
   const rect = mapCanvas.getBoundingClientRect();
   const worldX = ((e.clientX - rect.left) - mapOffsetX) / mapZoom;
   const worldY = ((e.clientY - rect.top) - mapOffsetY) / mapZoom;
   
   SceneManager.dungeonsList.forEach(d => {
     if (Math.hypot(d.x - worldX, d.y - worldY) < 5) {
-      d.cleared = !d.cleared; // Toggle completed state
+      d.cleared = !d.cleared; 
       if (d.cleared && beaconTarget && beaconTarget.x === d.x && beaconTarget.y === d.y) beaconTarget = null;
       renderWorldMap();
     }
@@ -504,7 +504,7 @@ mapCanvas.addEventListener('contextmenu', (e) => {
 });
 
 mapCanvas.addEventListener('click', (e) => {
-  if (isDraggingMap) return; // Previne clique no final do drag
+  if (isDraggingMap) return; 
   const rect = mapCanvas.getBoundingClientRect();
   const worldX = ((e.clientX - rect.left) - mapOffsetX) / mapZoom;
   const worldY = ((e.clientY - rect.top) - mapOffsetY) / mapZoom;
@@ -517,7 +517,7 @@ mapCanvas.addEventListener('click', (e) => {
   if (closest && !closest.cleared) {
     beaconTarget = { x: closest.x, y: closest.y };
   } else if (!closest) {
-    beaconTarget = null; // Clicar no vazio limpa o beacon
+    beaconTarget = null; 
   }
   renderWorldMap();
 });
@@ -525,7 +525,7 @@ mapCanvas.addEventListener('click', (e) => {
 document.getElementById('map-zoom-in')?.addEventListener('click', () => { mapZoom = Math.min(mapZoom + 0.5, 4.0); renderWorldMap(); });
 document.getElementById('map-zoom-out')?.addEventListener('click', () => { mapZoom = Math.max(mapZoom - 0.5, 0.5); renderWorldMap(); });
 
-// Binds de UI
+// Controle de Interações e Hotkeys
 document.getElementById('menu-btn')?.addEventListener('click', () => toggleUI('pause'));
 document.getElementById('resume-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-grimoire-btn')?.addEventListener('click', () => toggleUI(false));
@@ -542,9 +542,38 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (gameState === 'PLAYING') toggleUI('pause'); else toggleUI(false);
   }
-  if (e.key >= '1' && e.key <= '4') setActiveSlot(parseInt(e.key) - 1);
-  if (e.key.toLowerCase() === 'e') { e.preventDefault(); executeAction1(); }
-  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); executeAction2(); }
+
+  // Hotbar Direta
+  if (e.key === '1') setActiveSlot(0); // Caderno
+  if (e.key === '2') setActiveSlot(1); // Grimório
+  if (e.key === '3') setActiveSlot(2); // Mapa
+  if (e.key === '0') setActiveSlot(3); // Mão Vazia
+
+  // Ações de Mapa Rápidas
+  if (e.key.toLowerCase() === 'm' && gameState === 'PLAYING') {
+    setActiveSlot(2);
+    executeAction1();
+  }
+
+  // Meditação
+  if (e.key.toLowerCase() === 'r' && gameState === 'PLAYING') {
+    player.isMeditating = !player.isMeditating;
+    document.getElementById('meditate-log').style.display = player.isMeditating ? 'block' : 'none';
+  }
+
+  // Cycle Hotbar
+  if (e.key === 'ArrowUp') {
+    let next = Inventory.activeIndex - 1;
+    if (next < 0) next = Inventory.slots.length - 1;
+    setActiveSlot(next);
+  }
+  if (e.key === 'ArrowDown') {
+    let next = (Inventory.activeIndex + 1) % Inventory.slots.length;
+    setActiveSlot(next);
+  }
+
+  if (e.key.toLowerCase() === 'q' || e.key === ' ') { e.preventDefault(); executeAction1(); }
+  if (e.key.toLowerCase() === 'e' || e.key === 'Enter') { e.preventDefault(); executeAction2(); }
 });
 
 onSpellCast((spellResult) => {
@@ -552,11 +581,7 @@ onSpellCast((spellResult) => {
     spellLog.textContent = "Magia: Falha no traço"; spellLog.style.color = "#f00";
     return;
   }
-  if (globalCooldown > 0) {
-    spellLog.textContent = "Em Recarga..."; spellLog.style.color = "#ffaa00";
-    return;
-  }
-
+  
   spellLog.textContent = `Feitiço: ${spellResult.spellId} (${spellResult.accuracy}%)`;
   spellLog.style.color = "#0ff";
   cacheSpell = spellResult; 
@@ -620,7 +645,6 @@ function gameLoop(timestamp) {
       let targetAngle = Math.atan2(dy, dx) * (180 / Math.PI);
       let relativeAngle = targetAngle - player.angle;
       
-      // Ajusta para que 0 graus aponte para cima na UI
       let arrowRotation = relativeAngle + 90;
       document.getElementById('compass-arrow').style.transform = `rotate(${arrowRotation}deg)`;
     } else {
@@ -648,5 +672,5 @@ function gameLoop(timestamp) {
   requestAnimationFrame(gameLoop);
 }
 
-setActiveSlot(0);
+setActiveSlot(3); // Inicia sempre com a mão vazia
 requestAnimationFrame(gameLoop);
