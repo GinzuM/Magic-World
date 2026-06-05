@@ -8,7 +8,6 @@ export function spawnProjectile(player, spellResult) {
   const spellId = spellResult.spellId;
   const accuracyMod = parseFloat(spellResult.accuracy) / 100;
   
-  // Utiliza o novo motor de status centralizado do Spellbook
   const stats = calculateSpellStats(spellId, accuracyMod);
 
   if (player.mana < stats.manaCost) {
@@ -46,10 +45,16 @@ export function spawnProjectile(player, spellResult) {
     const rad = player.angle * (Math.PI / 180);
     const speed = stats.isBarrier ? 0 : stats.projSpeed;
 
+    // Deslocamento de Spawn: Spawna o projétil 0.6 unidades à frente do jogador
+    // Isso impede a auto-colisão no bloco onde o jogador está no exato frame zero.
+    const spawnOffset = 0.6;
+    let startX = player.x + Math.cos(rad) * spawnOffset;
+    let startY = player.y + Math.sin(rad) * spawnOffset;
+
     activeProjectiles.push({
       id: spellId,
-      x: player.x,
-      y: player.y,
+      x: startX,
+      y: startY,
       dx: Math.cos(rad) * speed,
       dy: Math.sin(rad) * speed,
       color: stats.color,
@@ -79,8 +84,8 @@ export function updateProjectiles(deltaTime, timeScale, map) {
     let mapX = Math.floor(p.x);
     let mapY = Math.floor(p.y);
     
-    // Projéteis param em paredes indestrutíveis (1) e bordas do mapa
-    if (p.life <= 0 || !map[mapY] || map[mapY][mapX] === 1) {
+    // Tratamento deOutOfBounds para projéteis (impede erro de undefined se sair do mapa)
+    if (p.life <= 0 || mapY < 0 || mapX < 0 || mapY >= map.length || mapX >= map[0].length || map[mapY][mapX] === 1) {
       activeProjectiles.splice(i, 1);
     }
   }

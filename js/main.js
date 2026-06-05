@@ -4,7 +4,8 @@ import { castRays } from './core/renderer.js';
 import { toggleSpellMode, onSpellCast, appendCurrentRune, undoLastRune, getSpellQueue } from './magic/capture.js';
 import { SpellRegistry, calculateSpellStats } from './magic/spellbook.js';
 
-export let gameState = 'PLAYING'; 
+export let gameState = 'MAIN_MENU'; 
+
 export const Inventory = {
   slots: [
     { id: 'spellbook', name: 'Caderno de Magias' },
@@ -12,10 +13,11 @@ export const Inventory = {
     { id: 'map', name: 'Mapa Tático Global' },
     { id: 'empty', name: 'Mão Vazia' }
   ],
-  activeIndex: 3 // Começa com a mão vazia
+  activeIndex: 3 // Inicia na Mão Vazia
 };
 
 player.coins = 0;
+export const recentSpells = [];
 
 // Geração de Mundo 500x500
 const WORLD_SIZE = 500;
@@ -32,18 +34,15 @@ function generateOverworld(size) {
     map[0][i] = 1; map[size - 1][i] = 1; map[i][0] = 1; map[i][size - 1] = 1;
   }
   
-  // Praça Central Aberta (Santuário de Spawn) - Evita a sensação de estar preso
   const centerSize = 20;
   const cStart = Math.floor(size / 2) - Math.floor(centerSize / 2);
   for(let y = 0; y < centerSize; y++) {
     for(let x = 0; x < centerSize; x++) {
-      // Cria pilares espaçados ao redor do spawn em vez de paredes sólidas
       if ((x === 0 || x === centerSize-1) && (y % 4 === 0)) map[cStart+y][cStart+x] = 1;
       if ((y === 0 || y === centerSize-1) && (x % 4 === 0)) map[cStart+y][cStart+x] = 1;
     }
   }
 
-  // Limpa a área exata do jogador por segurança
   map[Math.floor(size/2)][Math.floor(size/2)] = 0;
 
   const numRuins = 200; 
@@ -53,7 +52,6 @@ function generateOverworld(size) {
     let rx = Math.floor(Math.random() * (size - 20)) + 10;
     let ry = Math.floor(Math.random() * (size - 20)) + 10;
     
-    // Evita spawnar dungeons muito perto da praça central
     if(Math.abs(rx - size/2) < 25 && Math.abs(ry - size/2) < 25) continue; 
     
     let struct = structures[Math.floor(Math.random() * structures.length)];
@@ -109,6 +107,14 @@ function generateDungeonFloor(size, difficulty) {
   
   map[Math.floor(size/2)][Math.floor(size/2)] = 3; 
   map[y][x] = 2; 
+
+  // Correção crítica: Envelopamento das bordas para evitar Softlock de colisão no DDA
+  for (let i = 0; i < size; i++) {
+    map[0][i] = 1;
+    map[size - 1][i] = 1;
+    map[i][0] = 1;
+    map[i][size - 1] = 1;
+  }
   
   return { map, chests };
 }
@@ -120,6 +126,7 @@ export const SceneManager = {
   overworldMap: worldData.map,
   dungeonsList: worldData.dungeonsList,
   currentDungeonRef: null,
+  beaconTarget: null,
   dungeonData: { floors: [], currentFloor: 0, maxFloors: 0, totalChests: 0, foundChests: 0 },
   savedOverworldCoords: { x: WORLD_SIZE/2, y: WORLD_SIZE/2 },
   activeMap: worldData.map,
@@ -174,6 +181,9 @@ export const SceneManager = {
     player.x = this.savedOverworldCoords.x;
     player.y = this.savedOverworldCoords.y + 1.5;
     this.currentDungeonRef.cleared = true;
+    if (this.beaconTarget && this.beaconTarget.x === this.currentDungeonRef.x && this.beaconTarget.y === this.currentDungeonRef.y) {
+      this.beaconTarget = null;
+    }
     activeProjectiles.length = 0;
     document.getElementById('map-log').textContent = "Mundo Aberto";
     document.getElementById('map-log').style.color = "#fa0";
@@ -191,7 +201,7 @@ export const SceneManager = {
   }
 };
 
-// Spawn inicial no centro absoluto do mundo
+// Spawn inicial no centro
 player.x = WORLD_SIZE / 2;
 player.y = WORLD_SIZE / 2;
 
@@ -200,7 +210,6 @@ let timeScale = 1.0;
 let cacheSpell = null; 
 let globalCooldown = 0;
 let portalCooldown = 0;
-let beaconTarget = null;
 
 // Variáveis do Mapa Tático
 let mapZoom = 1.0;
@@ -214,6 +223,7 @@ const pauseMenu = document.getElementById('pause-menu');
 const grimoireMenu = document.getElementById('grimoire-overlay');
 const spellOverlay = document.getElementById('spell-overlay');
 const mapOverlay = document.getElementById('map-overlay');
+const playerMenu = document.getElementById('player-menu');
 const spellLog = document.getElementById('spell-log');
 const recastLog = document.getElementById('recast-log');
 const itemLog = document.getElementById('item-log');
@@ -222,7 +232,6 @@ const mapCanvas = document.getElementById('world-map-canvas');
 const grimEntries = Object.values(SpellRegistry).sort((a,b) => a.id.localeCompare(b.id));
 let grimPage = 0;
 
-// Atualização de UI de Configuração (Sensibilidade)
 document.getElementById('sens-slider')?.addEventListener('input', (e) => {
   document.getElementById('sens-val').textContent = parseFloat(e.target.value).toFixed(1);
 });
@@ -267,7 +276,7 @@ function updateViewModel() {
 }
 
 function setActiveSlot(index) {
-  if (player.isMeditating || spellOverlay.style.display === 'flex' || grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex') return;
+  if (player.isMeditating || gameState !== 'PLAYING') return;
   Inventory.activeIndex = index;
   for (let i = 0; i <= 3; i++) {
     const slot = document.getElementById(`slot-${i}`);
@@ -278,6 +287,29 @@ function setActiveSlot(index) {
   }
   itemLog.textContent = `Equipado: ${Inventory.slots[index].name}`;
   updateViewModel();
+}
+
+function updatePlayerMenu() {
+  document.getElementById('pm-hp').textContent = `${Math.floor(player.hp)} / ${player.maxHp}`;
+  document.getElementById('pm-mana').textContent = `${Math.floor(player.mana)} / ${player.maxMana}`;
+  document.getElementById('pm-armor').textContent = Math.floor(player.armor);
+  document.getElementById('pm-coins').textContent = player.coins;
+  document.getElementById('pm-regenh').textContent = (player.hpRegen * player.regenHpBuff * 60).toFixed(1);
+  document.getElementById('pm-regenm').textContent = (player.manaRegen * player.regenManaBuff * 60).toFixed(1);
+
+  const historyContainer = document.getElementById('pm-spell-history');
+  historyContainer.innerHTML = '';
+  if (recentSpells.length === 0) {
+    historyContainer.innerHTML = 'Nenhuma conjuração registrada.';
+  } else {
+    recentSpells.forEach(s => {
+      const el = document.createElement('div');
+      el.style.borderBottom = '1px solid #333';
+      el.style.paddingBottom = '4px';
+      el.innerHTML = `<strong style="color:#0ff">${s.id}</strong> - Dano: ${s.dmg} | Custo: ${s.cost} | Tipo: ${s.type}`;
+      historyContainer.appendChild(el);
+    });
+  }
 }
 
 export function updateLivePreview(queueStr) {
@@ -308,20 +340,31 @@ export function updateLivePreview(queueStr) {
 
 function executeAction1() {
   if (player.isMeditating) return;
-  if (gameState === 'PAUSED' && grimoireMenu.style.display !== 'flex' && mapOverlay.style.display !== 'flex') return;
-  if (grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex') { toggleUI(false); return; }
+  if (gameState === 'PAUSED' && grimoireMenu.style.display !== 'flex' && mapOverlay.style.display !== 'flex' && spellOverlay.style.display !== 'flex') return;
+  
+  if (grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex' || spellOverlay.style.display === 'flex') { 
+    if (spellOverlay.style.display === 'flex') toggleSpellMode(); 
+    toggleUI(false); 
+    return; 
+  }
 
   switch(Inventory.activeIndex) {
-    case 0: toggleSpellMode(); break; // Spellbook
-    case 1: toggleUI('grimoire'); updateGrimoireView(); break; // Grimoire
-    case 2: // Map
+    case 0: 
+      toggleSpellMode(); 
+      gameState = 'PAUSED'; 
+      break;
+    case 1: 
+      toggleUI('grimoire'); 
+      updateGrimoireView(); 
+      break; 
+    case 2: 
       toggleUI('map'); 
       mapZoom = 1.8;
       mapOffsetX = (mapCanvas.clientWidth / 2) - (player.x * mapZoom);
       mapOffsetY = (mapCanvas.clientHeight / 2) - (player.y * mapZoom);
       renderWorldMap(); 
       break;
-    case 3: // Empty Hand
+    case 3: 
       spellLog.textContent = "Mão vazia. Nenhuma ação."; spellLog.style.color = "#aaa"; 
       break;
   }
@@ -329,7 +372,7 @@ function executeAction1() {
 
 function executeAction2() {
   if (player.isMeditating) return;
-  if (gameState === 'PAUSED') return;
+  if (gameState !== 'PLAYING' && spellOverlay.style.display !== 'flex') return;
 
   if (spellOverlay.style.display === 'flex') {
     appendCurrentRune(true); 
@@ -343,7 +386,7 @@ function executeAction2() {
   }
 
   switch(Inventory.activeIndex) {
-    case 0: // Spellbook Shoot
+    case 0: 
       if (!cacheSpell || cacheSpell.spellId === 'Falha' || cacheSpell.spellId === '') {
         spellLog.textContent = "Cache Mágico Vazio ou Inválido!"; spellLog.style.color = "#ff5500";
         return;
@@ -360,10 +403,15 @@ function executeAction2() {
 }
 
 function toggleUI(menu) {
-  if (player.isMeditating && menu) return; // Impede abrir menus meditando
+  if (player.isMeditating && menu) return; 
   grimoireMenu.style.display = 'none';
   mapOverlay.style.display = 'none';
   pauseMenu.style.display = 'none';
+  playerMenu.style.display = 'none';
+  
+  if (spellOverlay.style.display === 'flex' && !menu) {
+    toggleSpellMode();
+  }
 
   if (!menu) {
     gameState = 'PLAYING';
@@ -373,6 +421,10 @@ function toggleUI(menu) {
     if (menu === 'grimoire') grimoireMenu.style.display = 'flex';
     if (menu === 'map') mapOverlay.style.display = 'flex';
     if (menu === 'pause') pauseMenu.style.display = 'flex';
+    if (menu === 'player') {
+      updatePlayerMenu();
+      playerMenu.style.display = 'flex';
+    }
   }
 }
 
@@ -396,7 +448,6 @@ function renderWorldMap() {
   ctx.translate(mapOffsetX, mapOffsetY);
   ctx.scale(mapZoom, mapZoom);
 
-  // Grid
   ctx.strokeStyle = '#111';
   ctx.lineWidth = 1 / mapZoom;
   for(let i=0; i<=WORLD_SIZE; i+=50) {
@@ -420,7 +471,7 @@ function renderWorldMap() {
       ctx.stroke();
     }
 
-    if (beaconTarget && beaconTarget.x === d.x && beaconTarget.y === d.y) {
+    if (SceneManager.beaconTarget && SceneManager.beaconTarget.x === d.x && SceneManager.beaconTarget.y === d.y) {
       ctx.strokeStyle = '#0ff';
       ctx.lineWidth = 1.5 / mapZoom;
       ctx.beginPath();
@@ -431,7 +482,6 @@ function renderWorldMap() {
   
   document.getElementById('map-total-dungeons').textContent = remaining;
 
-  // Render Player no Overworld
   if (!SceneManager.isDungeon) {
     ctx.fillStyle = '#0ff';
     ctx.beginPath();
@@ -465,7 +515,6 @@ mapCanvas.addEventListener('mousemove', (e) => {
   const rect = mapCanvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
-  
   const worldX = (mouseX - mapOffsetX) / mapZoom;
   const worldY = (mouseY - mapOffsetY) / mapZoom;
 
@@ -497,7 +546,7 @@ mapCanvas.addEventListener('contextmenu', (e) => {
   SceneManager.dungeonsList.forEach(d => {
     if (Math.hypot(d.x - worldX, d.y - worldY) < 5) {
       d.cleared = !d.cleared; 
-      if (d.cleared && beaconTarget && beaconTarget.x === d.x && beaconTarget.y === d.y) beaconTarget = null;
+      if (d.cleared && SceneManager.beaconTarget && SceneManager.beaconTarget.x === d.x && SceneManager.beaconTarget.y === d.y) SceneManager.beaconTarget = null;
       renderWorldMap();
     }
   });
@@ -515,9 +564,9 @@ mapCanvas.addEventListener('click', (e) => {
     if (dist < 5 && dist < minDist) { minDist = dist; closest = d; }
   });
   if (closest && !closest.cleared) {
-    beaconTarget = { x: closest.x, y: closest.y };
+    SceneManager.beaconTarget = { x: closest.x, y: closest.y };
   } else if (!closest) {
-    beaconTarget = null; 
+    SceneManager.beaconTarget = null; 
   }
   renderWorldMap();
 });
@@ -525,14 +574,76 @@ mapCanvas.addEventListener('click', (e) => {
 document.getElementById('map-zoom-in')?.addEventListener('click', () => { mapZoom = Math.min(mapZoom + 0.5, 4.0); renderWorldMap(); });
 document.getElementById('map-zoom-out')?.addEventListener('click', () => { mapZoom = Math.max(mapZoom - 0.5, 0.5); renderWorldMap(); });
 
-// Controle de Interações e Hotkeys
+// SAVE / LOAD SYSTEM
+function exportSave() {
+  const payload = {
+    player: { hp: player.hp, maxHp: player.maxHp, mana: player.mana, maxMana: player.maxMana, armor: player.armor, coins: player.coins, x: player.x, y: player.y, angle: player.angle },
+    dungeonsList: SceneManager.dungeonsList,
+    savedCoords: SceneManager.savedOverworldCoords,
+    isDungeon: SceneManager.isDungeon,
+    history: recentSpells
+  };
+  const encoded = btoa(JSON.stringify(payload));
+  document.getElementById('save-textarea').value = encoded;
+  document.getElementById('save-export-area').style.display = 'flex';
+}
+
+function loadSave(encoded) {
+  try {
+    const payload = JSON.parse(atob(encoded));
+    Object.assign(player, payload.player);
+    SceneManager.dungeonsList = payload.dungeonsList;
+    SceneManager.savedOverworldCoords = payload.savedCoords;
+    if (payload.isDungeon) SceneManager.exitDungeon(); 
+    recentSpells.length = 0;
+    if (payload.history) recentSpells.push(...payload.history);
+    
+    document.getElementById('coin-counter').textContent = player.coins;
+    document.getElementById('main-menu').style.display = 'none';
+    toggleUI(false);
+    
+    spellLog.textContent = "Save carregado com sucesso.";
+    spellLog.style.color = "#0f0";
+  } catch (e) {
+    alert('Save inválido ou corrompido.');
+  }
+}
+
+document.getElementById('btn-save-game')?.addEventListener('click', exportSave);
+document.getElementById('btn-download-save')?.addEventListener('click', () => {
+  const data = document.getElementById('save-textarea').value;
+  const blob = new Blob([data], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'sintra_save.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+document.getElementById('btn-new-game')?.addEventListener('click', () => {
+  document.getElementById('main-menu').style.display = 'none';
+  gameState = 'PLAYING';
+  lastTime = performance.now();
+});
+document.getElementById('btn-load-game')?.addEventListener('click', () => document.getElementById('file-import').click());
+document.getElementById('file-import')?.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => loadSave(ev.target.result);
+  reader.readAsText(file);
+});
+
+// Binds de UI
 document.getElementById('menu-btn')?.addEventListener('click', () => toggleUI('pause'));
 document.getElementById('resume-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-grimoire-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-map-btn')?.addEventListener('click', () => toggleUI(false));
+document.getElementById('close-player-menu-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('action1-btn')?.addEventListener('click', executeAction1);
 document.getElementById('action2-btn')?.addEventListener('click', executeAction2);
 document.getElementById('undo-spell-btn')?.addEventListener('click', () => { undoLastRune(); });
+document.getElementById('close-spell-btn')?.addEventListener('click', () => { toggleSpellMode(); gameState = 'PLAYING'; });
 
 for (let i = 0; i <= 3; i++) {
   document.getElementById(`slot-${i}`)?.addEventListener('click', () => setActiveSlot(i));
@@ -540,43 +651,45 @@ for (let i = 0; i <= 3; i++) {
 
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    if (gameState === 'PLAYING') toggleUI('pause'); else toggleUI(false);
+    if (gameState === 'PLAYING') toggleUI('pause'); 
+    else if (gameState === 'PAUSED' && spellOverlay.style.display === 'flex') { toggleSpellMode(); gameState = 'PLAYING'; }
+    else toggleUI(false);
   }
 
-  // Hotbar Direta
-  if (e.key === '1') setActiveSlot(0); // Caderno
-  if (e.key === '2') setActiveSlot(1); // Grimório
-  if (e.key === '3') setActiveSlot(2); // Mapa
-  if (e.key === '0') setActiveSlot(3); // Mão Vazia
+  if (gameState === 'PLAYING') {
+    if (e.key === '1') setActiveSlot(0); 
+    if (e.key === '2') setActiveSlot(1); 
+    if (e.key === '3') setActiveSlot(2); 
+    if (e.key === '0') setActiveSlot(3); 
 
-  // Ações de Mapa Rápidas
-  if (e.key.toLowerCase() === 'm' && gameState === 'PLAYING') {
-    setActiveSlot(2);
-    executeAction1();
-  }
+    if (e.key.toLowerCase() === 'm') { setActiveSlot(2); executeAction1(); }
+    if (e.key.toLowerCase() === 'i') { toggleUI('player'); }
+    if (e.key.toLowerCase() === 'r') {
+      player.isMeditating = !player.isMeditating;
+      document.getElementById('meditate-log').style.display = player.isMeditating ? 'block' : 'none';
+    }
 
-  // Meditação
-  if (e.key.toLowerCase() === 'r' && gameState === 'PLAYING') {
-    player.isMeditating = !player.isMeditating;
-    document.getElementById('meditate-log').style.display = player.isMeditating ? 'block' : 'none';
-  }
+    if (e.key === 'ArrowUp') {
+      let next = Inventory.activeIndex - 1;
+      if (next < 0) next = Inventory.slots.length - 1;
+      setActiveSlot(next);
+    }
+    if (e.key === 'ArrowDown') {
+      let next = (Inventory.activeIndex + 1) % Inventory.slots.length;
+      setActiveSlot(next);
+    }
 
-  // Cycle Hotbar
-  if (e.key === 'ArrowUp') {
-    let next = Inventory.activeIndex - 1;
-    if (next < 0) next = Inventory.slots.length - 1;
-    setActiveSlot(next);
+    if (e.key.toLowerCase() === 'q' || e.key === ' ') { e.preventDefault(); executeAction1(); }
+    if (e.key.toLowerCase() === 'e' || e.key === 'Enter') { e.preventDefault(); executeAction2(); }
+  } else if (gameState === 'PAUSED' && spellOverlay.style.display === 'flex') {
+    if (e.key.toLowerCase() === 'e') { e.preventDefault(); appendCurrentRune(false); }
+    if (e.key.toLowerCase() === 'z') { e.preventDefault(); undoLastRune(); }
+    if (e.key === 'Enter') { e.preventDefault(); appendCurrentRune(true); }
   }
-  if (e.key === 'ArrowDown') {
-    let next = (Inventory.activeIndex + 1) % Inventory.slots.length;
-    setActiveSlot(next);
-  }
-
-  if (e.key.toLowerCase() === 'q' || e.key === ' ') { e.preventDefault(); executeAction1(); }
-  if (e.key.toLowerCase() === 'e' || e.key === 'Enter') { e.preventDefault(); executeAction2(); }
 });
 
 onSpellCast((spellResult) => {
+  gameState = 'PLAYING';
   if (!spellResult || spellResult.spellId === 'Falha') {
     spellLog.textContent = "Magia: Falha no traço"; spellLog.style.color = "#f00";
     return;
@@ -587,6 +700,17 @@ onSpellCast((spellResult) => {
   cacheSpell = spellResult; 
   recastLog.textContent = `Recast: ${cacheSpell.spellId}`;
   
+  const stats = calculateSpellStats(spellResult.spellId, parseFloat(spellResult.accuracy) / 100);
+  let typeStr = stats.isProj ? "Projétil" : (stats.isBarrier ? "Barreira" : "Aura");
+  
+  recentSpells.unshift({
+    id: spellResult.spellId,
+    dmg: stats.damage.toFixed(1),
+    cost: stats.manaCost,
+    type: typeStr
+  });
+  if (recentSpells.length > 15) recentSpells.pop();
+
   let cd = spawnProjectile(player, spellResult); 
   if (cd) globalCooldown = cd;
 });
@@ -595,7 +719,8 @@ document.addEventListener('click', (e) => {
   if (e.target && e.target.classList.contains('guide-btn')) {
     window.activeWatermark = e.target.getAttribute('data-rune');
     toggleUI(false);
-    toggleSpellMode();
+    setActiveSlot(0); // Força selecionar o Caderno ao Praticar
+    executeAction1(); // Abre direto a tela de desenho
   }
 });
 
@@ -625,7 +750,12 @@ function gameLoop(timestamp) {
   lastTime = timestamp;
   if (deltaTime > 100) deltaTime = 16;
 
-  if (gameState !== 'PAUSED') {
+  if (gameState === 'PLAYING') {
+    document.getElementById('hud-hp-bar').style.width = `${(player.hp / player.maxHp) * 100}%`;
+    document.getElementById('hud-hp-text').textContent = `${Math.floor(player.hp)} / ${player.maxHp}`;
+    document.getElementById('hud-mana-bar').style.width = `${(player.mana / player.maxMana) * 100}%`;
+    document.getElementById('hud-mana-text').textContent = `${Math.floor(player.mana)} / ${player.maxMana}`;
+
     if (globalCooldown > 0) globalCooldown -= deltaTime;
     if (portalCooldown > 0) portalCooldown -= deltaTime;
 
@@ -633,17 +763,16 @@ function gameLoop(timestamp) {
     updateProjectiles(deltaTime, timeScale, SceneManager.activeMap);
     processProjectileCollisions();
 
-    // Bússola Direcional (Beacon)
-    if (beaconTarget && !SceneManager.isDungeon) {
-      let dx = beaconTarget.x - player.x;
-      let dy = beaconTarget.y - player.y;
+    if (SceneManager.beaconTarget && !SceneManager.isDungeon) {
+      let dx = SceneManager.beaconTarget.x - player.x;
+      let dy = SceneManager.beaconTarget.y - player.y;
       let dist = Math.hypot(dx, dy);
       
       document.getElementById('compass-container').style.display = 'flex';
       document.getElementById('beacon-distance').textContent = Math.floor(dist);
 
       let targetAngle = Math.atan2(dy, dx) * (180 / Math.PI);
-      let relativeAngle = targetAngle - player.angle;
+      let relativeAngle = ((targetAngle - player.angle % 360) + 360) % 360;
       
       let arrowRotation = relativeAngle + 90;
       document.getElementById('compass-arrow').style.transform = `rotate(${arrowRotation}deg)`;
@@ -668,9 +797,11 @@ function gameLoop(timestamp) {
     }
   }
   
-  castRays(SceneManager.activeMap);
+  if (gameState !== 'MAIN_MENU') {
+    castRays(SceneManager.activeMap);
+  }
   requestAnimationFrame(gameLoop);
 }
 
-setActiveSlot(3); // Inicia sempre com a mão vazia
+setActiveSlot(3);
 requestAnimationFrame(gameLoop);

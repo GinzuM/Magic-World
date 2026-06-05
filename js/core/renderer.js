@@ -7,6 +7,7 @@ const ctx = canvas.getContext('2d');
 
 const FOV = 60;
 const RESOLUTION = 1; 
+const MAX_DEPTH = 100; // Limite absoluto do algoritmo DDA (previne freeze da thread)
 
 function degToRad(deg) {
   return deg * Math.PI / 180;
@@ -15,11 +16,9 @@ function degToRad(deg) {
 export function castRays(map) {
   const isDungeon = SceneManager.isDungeon;
   
-  // Cálculo do deslocamento do horizonte baseado no eixo Z do jogador (Agachamento)
   const pitch = player.z * 0.8; 
   const horizon = (canvas.height / 2) + pitch;
 
-  // Renderização Dinâmica do Teto e Chão acompanhando a câmera
   ctx.fillStyle = isDungeon ? '#030307' : '#05070a'; 
   ctx.fillRect(0, 0, canvas.width, horizon);
   ctx.fillStyle = isDungeon ? '#0e0c0a' : '#0c0f0a'; 
@@ -64,7 +63,8 @@ export function castRays(map) {
       sideDistY = (mapY + 1.0 - player.y) * deltaDistY;
     }
 
-    while (hit === 0) {
+    let distance = 0;
+    while (hit === 0 && distance < MAX_DEPTH) {
       if (sideDistX < sideDistY) {
         sideDistX += deltaDistX;
         mapX += stepX;
@@ -75,10 +75,18 @@ export function castRays(map) {
         side = 1;
       }
       
+      // Validação de borda de array
+      if (mapY < 0 || mapX < 0 || mapY >= map.length || mapX >= map[0].length) {
+        hit = 1;
+        hitType = 1;
+        break;
+      }
+
       if (map[mapY] && map[mapY][mapX] > 0) {
         hit = 1;
         hitType = map[mapY][mapX];
       }
+      distance++;
     }
 
     if (side === 0) perpWallDist = (mapX - player.x + (1 - stepX) / 2) / rayDirX;
@@ -88,22 +96,28 @@ export function castRays(map) {
     ZBuffer[x] = correctedDist;
 
     const lineHeight = (canvas.height / correctedDist);
-    
-    // Aplicação da projeção de perspectiva no eixo Z para deslocar a parede
     const zOffset = player.z / correctedDist;
     const drawStart = -lineHeight / 2 + (canvas.height / 2) + zOffset;
     
     let color;
-    if (hitType === 1) { 
-      color = side === 1 ? (isDungeon ? '#2c2c30' : '#0b3d30') : (isDungeon ? '#3a3a40' : '#125443');
-    } else if (hitType === 2) { 
-      color = side === 1 ? '#5200cc' : '#7300e6';
-    } else if (hitType === 3) { 
-      color = side === 1 ? '#007acc' : '#0099ff';
-    } else if (hitType === 4) { 
-      color = side === 1 ? '#8b5a2b' : '#a0522d';
-    } else if (hitType === 5) { 
-      color = side === 1 ? '#ffd700' : '#ffcc00';
+    
+    // Intercepção visual para destacar o Portal se estiver marcado no mapa tático (Beacon)
+    if (SceneManager.beaconTarget && mapX === SceneManager.beaconTarget.x && mapY === SceneManager.beaconTarget.y && hitType >= 2 && hitType <= 3) {
+      color = side === 1 ? '#00ffff' : '#00cccc';
+    } else {
+      if (hitType === 1) { 
+        color = side === 1 ? (isDungeon ? '#2c2c30' : '#0b3d30') : (isDungeon ? '#3a3a40' : '#125443');
+      } else if (hitType === 2) { 
+        color = side === 1 ? '#5200cc' : '#7300e6';
+      } else if (hitType === 3) { 
+        color = side === 1 ? '#007acc' : '#0099ff';
+      } else if (hitType === 4) { 
+        color = side === 1 ? '#8b5a2b' : '#a0522d';
+      } else if (hitType === 5) { 
+        color = side === 1 ? '#ffd700' : '#ffcc00';
+      } else {
+        color = '#000'; // Fallback se exceder MAX_DEPTH
+      }
     }
 
     ctx.fillStyle = color;
@@ -143,7 +157,6 @@ function renderSprites(ZBuffer) {
       const spriteHeight = Math.abs(Math.floor(canvas.height / transformY)) * spriteScale;
       const spriteWidth = spriteHeight;
 
-      // Desloca o sprite no eixo Y acompanhando a câmera do jogador (Agachamento)
       const zOffset = player.z / transformY;
       const drawStartY = Math.floor(-spriteHeight / 2 + (canvas.height / 2)) + zOffset;
       const drawStartX = Math.floor(spriteScreenX - spriteWidth / 2);
