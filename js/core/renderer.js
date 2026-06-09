@@ -7,7 +7,7 @@ const ctx = canvas.getContext('2d');
 
 const FOV = 60;
 const RESOLUTION = 1; 
-const MAX_DEPTH = 100; // Limite absoluto do algoritmo DDA (previne freeze da thread)
+const MAX_DEPTH = 100;
 
 function degToRad(deg) {
   return deg * Math.PI / 180;
@@ -17,11 +17,19 @@ export function castRays(map) {
   const isDungeon = SceneManager.isDungeon;
   
   const pitch = player.z * 0.8; 
-  const horizon = (canvas.height / 2) + pitch;
+  const horizon = Math.floor((canvas.height / 2) + pitch);
 
-  ctx.fillStyle = isDungeon ? '#030307' : '#05070a'; 
+  // Renderização visual de chão/teto por gradiente (elimina a sensação "cortado")
+  const skyGradient = ctx.createLinearGradient(0, 0, 0, horizon);
+  skyGradient.addColorStop(0, isDungeon ? '#010102' : '#0a1220');
+  skyGradient.addColorStop(1, isDungeon ? '#040406' : '#1b2a42');
+  ctx.fillStyle = skyGradient;
   ctx.fillRect(0, 0, canvas.width, horizon);
-  ctx.fillStyle = isDungeon ? '#0e0c0a' : '#0c0f0a'; 
+  
+  const floorGradient = ctx.createLinearGradient(0, horizon, 0, canvas.height);
+  floorGradient.addColorStop(0, isDungeon ? '#0a0806' : '#141814');
+  floorGradient.addColorStop(1, isDungeon ? '#030201' : '#080a08');
+  ctx.fillStyle = floorGradient;
   ctx.fillRect(0, horizon, canvas.width, canvas.height - horizon);
 
   const ZBuffer = new Float64Array(canvas.width);
@@ -75,7 +83,6 @@ export function castRays(map) {
         side = 1;
       }
       
-      // Validação de borda de array
       if (mapY < 0 || mapX < 0 || mapY >= map.length || mapX >= map[0].length) {
         hit = 1;
         hitType = 1;
@@ -97,11 +104,10 @@ export function castRays(map) {
 
     const lineHeight = (canvas.height / correctedDist);
     const zOffset = player.z / correctedDist;
-    const drawStart = -lineHeight / 2 + (canvas.height / 2) + zOffset;
+    const drawStart = -lineHeight / 2 + horizon + zOffset;
     
     let color;
     
-    // Intercepção visual para destacar o Portal se estiver marcado no mapa tático (Beacon)
     if (SceneManager.beaconTarget && mapX === SceneManager.beaconTarget.x && mapY === SceneManager.beaconTarget.y && hitType >= 2 && hitType <= 3) {
       color = side === 1 ? '#00ffff' : '#00cccc';
     } else {
@@ -116,7 +122,7 @@ export function castRays(map) {
       } else if (hitType === 5) { 
         color = side === 1 ? '#ffd700' : '#ffcc00';
       } else {
-        color = '#000'; // Fallback se exceder MAX_DEPTH
+        color = '#000';
       }
     }
 
@@ -124,10 +130,10 @@ export function castRays(map) {
     ctx.fillRect(x, drawStart, RESOLUTION, lineHeight);
   }
 
-  renderSprites(ZBuffer);
+  renderSprites(ZBuffer, horizon);
 }
 
-function renderSprites(ZBuffer) {
+function renderSprites(ZBuffer, horizon) {
   const sortedProjectiles = [...activeProjectiles].sort((a, b) => {
     const distA = Math.pow(player.x - a.x, 2) + Math.pow(player.y - a.y, 2);
     const distB = Math.pow(player.x - b.x, 2) + Math.pow(player.y - b.y, 2);
@@ -158,7 +164,7 @@ function renderSprites(ZBuffer) {
       const spriteWidth = spriteHeight;
 
       const zOffset = player.z / transformY;
-      const drawStartY = Math.floor(-spriteHeight / 2 + (canvas.height / 2)) + zOffset;
+      const drawStartY = Math.floor(-spriteHeight / 2 + horizon) + zOffset;
       const drawStartX = Math.floor(spriteScreenX - spriteWidth / 2);
       const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
 

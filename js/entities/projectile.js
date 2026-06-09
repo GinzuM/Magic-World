@@ -3,7 +3,7 @@ import { calculateSpellStats } from '../magic/spellbook.js';
 export const activeProjectiles = [];
 
 export function spawnProjectile(player, spellResult) {
-  if (!spellResult || spellResult.spellId === 'Falha') return 0;
+  if (!spellResult || spellResult.spellId === 'Falha' || spellResult.spellId === '') return 0;
 
   const spellId = spellResult.spellId;
   const accuracyMod = parseFloat(spellResult.accuracy) / 100;
@@ -46,7 +46,7 @@ export function spawnProjectile(player, spellResult) {
     const speed = stats.isBarrier ? 0 : stats.projSpeed;
 
     // Deslocamento de Spawn: Spawna o projétil 0.6 unidades à frente do jogador
-    // Isso impede a auto-colisão no bloco onde o jogador está no exato frame zero.
+    // Impede que a magia colida com a parede de trás ou com o centro do próprio corpo no frame zero
     const spawnOffset = 0.6;
     let startX = player.x + Math.cos(rad) * spawnOffset;
     let startY = player.y + Math.sin(rad) * spawnOffset;
@@ -84,7 +84,7 @@ export function updateProjectiles(deltaTime, timeScale, map) {
     let mapX = Math.floor(p.x);
     let mapY = Math.floor(p.y);
     
-    // Tratamento deOutOfBounds para projéteis (impede erro de undefined se sair do mapa)
+    // Proteção de borda (Out of Bounds) para evitar erros caso o projétil atinja o void
     if (p.life <= 0 || mapY < 0 || mapX < 0 || mapY >= map.length || mapX >= map[0].length || map[mapY][mapX] === 1) {
       activeProjectiles.splice(i, 1);
     }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Engine RPG</title>
+  <title>Wizard World</title>
   <link rel="stylesheet" href="css/style.css">
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: monospace; touch-action: none; user-select: none; }
@@ -21,6 +21,7 @@
     .grimoire-book { width: 90%; max-width: 700px; height: 80%; background: #e2d7be; border-radius: 8px; display: flex; flex-direction: row; box-shadow: inset 0 0 50px rgba(0,0,0,0.5), 0 10px 30px rgba(0,0,0,0.8); position: relative; border: 4px solid #5c4726; pointer-events: auto; }
     .book-spine { position: absolute; left: 50%; top: 0; bottom: 0; width: 40px; transform: translateX(-50%); background: linear-gradient(90deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.2) 100%); z-index: 5; border-left: 1px solid rgba(255,255,255,0.1); border-right: 1px solid rgba(255,255,255,0.1); }
     .page { flex: 1; padding: 30px; display: flex; flex-direction: column; overflow-y: auto; color: #2b1d0c; font-family: Georgia, serif; position: relative; z-index: 1; }
+    .page-image { width: 100%; height: 160px; background: radial-gradient(circle, #e8dfc8 0%, #c8b99e 100%); border: 2px solid #8a6d3b; margin-bottom: 15px; display: flex; justify-content: center; align-items: center; box-shadow: inset 0 0 20px rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden; }
     
     #hand-viewmodel { position: absolute; bottom: -40px; right: 10%; width: 280px; height: 350px; pointer-events: none; z-index: 5; transition: transform 0.15s ease-out; transform-origin: bottom right; }
     .vm-empty { display: none; }
@@ -53,8 +54,8 @@
   <div id="game-container">
     
     <div id="main-menu" class="overlay-screen" style="display: flex; z-index: 500; background: #050505;">
-      <h1 style="color: #0ff; font-size: 36px; letter-spacing: 5px; text-shadow: 0 0 20px rgba(0,255,255,0.5); margin-bottom: 40px;">ENGINE RPG</h1>
-      <button id="btn-new-game" class="menu-btn-large">Iniciar Sistema</button>
+      <h1 style="color: #0ff; font-size: 36px; letter-spacing: 5px; text-shadow: 0 0 20px rgba(0,255,255,0.5); margin-bottom: 40px;">WIZARD WORLD</h1>
+      <button id="btn-new-game" class="menu-btn-large">Iniciar Jogo</button>
       <button id="btn-load-game" class="menu-btn-large" style="background: #333; color: #fff; border: 1px solid #555;">Importar Save</button>
       <input type="file" id="file-import" style="display: none;" accept=".txt">
     </div>
@@ -124,9 +125,9 @@
             <div style="width:40px;"></div>
           </div>
           <div class="page-image" id="gp-left-img">?</div>
-          <div class="page-desc" id="gp-left-desc">...</div>
-          <div class="page-stats" id="gp-left-stats">...</div>
-          <button class="guide-btn" id="gp-left-guide" style="margin-top: auto; pointer-events: auto;">Praticar Runa</button>
+          <div class="page-desc" id="gp-left-desc" style="font-style: italic; color: #4a3018;">...</div>
+          <div class="page-stats" id="gp-left-stats" style="margin-top: auto; margin-bottom: 15px;">...</div>
+          <button class="guide-btn" id="gp-left-guide" style="padding: 10px; font-weight: bold; background: #fff; border: 2px solid #a68a56; cursor: pointer; pointer-events: auto;">Praticar Runa</button>
         </div>
         <div class="page right-page" id="grimoire-page-right">
           <div style="display:flex; justify-content: space-between; margin-bottom: 10px;">
@@ -135,12 +136,11 @@
             <button id="grim-next" class="page-nav-btn" style="pointer-events: auto;">►</button>
           </div>
           <div class="page-image" id="gp-right-img">?</div>
-          <div class="page-desc" id="gp-right-desc">...</div>
-          <div class="page-stats" id="gp-right-stats">...</div>
-          <button class="guide-btn" id="gp-right-guide" style="margin-top: auto; pointer-events: auto;">Praticar Runa</button>
+          <div class="page-desc" id="gp-right-desc" style="font-style: italic; color: #4a3018;">...</div>
+          <div class="page-stats" id="gp-right-stats" style="margin-top: auto; margin-bottom: 15px;">...</div>
+          <button class="guide-btn" id="gp-right-guide" style="padding: 10px; font-weight: bold; background: #fff; border: 2px solid #a68a56; cursor: pointer; pointer-events: auto;">Praticar Runa</button>
         </div>
       </div>
-      <button id="close-grimoire-btn" style="position: absolute; bottom: 20px; padding: 10px 30px; background: #5c4726; color: #e2d7be; border: 2px solid #a68a56; font-weight: bold; cursor: pointer; pointer-events: auto;">Fechar Livro</button>
     </div>
 
     <div id="spell-overlay" class="overlay-screen" style="background: transparent; justify-content: flex-end; align-items: center; padding-right: 40px; box-sizing: border-box;">
@@ -167,15 +167,16 @@
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
           <button id="undo-spell-btn" style="background: #500; color: #fff; padding: 10px; border: none; font-weight: bold; cursor: pointer; border-radius:4px; pointer-events: auto;">Apagar (Z)</button>
           <button id="add-spell-btn" style="background: #fa0; color: #000; padding: 10px; border: none; font-weight: bold; cursor: pointer; border-radius:4px; pointer-events: auto;">Add Runa (E)</button>
-          <button id="close-spell-btn" style="background: #333; color: #fff; padding: 10px; border: none; font-weight: bold; cursor: pointer; border-radius:4px; pointer-events: auto;">Sair (ESC)</button>
-          <button id="cast-spell-btn" style="background: #0a0; color: #fff; padding: 10px; border: none; font-weight: bold; cursor: pointer; border-radius:4px; pointer-events: auto;">Conjurar</button>
+          <button id="close-spell-btn" style="background: #333; color: #fff; padding: 10px; border: none; font-weight: bold; cursor: pointer; border-radius:4px; pointer-events: auto;">Sair (Q)</button>
+          <button id="cast-spell-btn" style="background: #0a0; color: #fff; padding: 10px; border: none; font-weight: bold; cursor: pointer; border-radius:4px; pointer-events: auto;">Conjurar (Enter)</button>
         </div>
       </div>
     </div>
 
+    <!-- Mapa -->
     <div id="map-overlay" class="overlay-screen" style="background: rgba(0,0,0,0.95);">
       <div style="width: 90%; max-width: 600px; display: flex; justify-content: space-between; color: #0ff; font-weight: bold; margin-bottom: 10px;">
-        <span>Mapa Tático Global (500x500)</span>
+        <span>Mapa Tático Global</span>
         <span>Dungeons Restantes: <span id="map-total-dungeons">0</span></span>
       </div>
       
@@ -195,16 +196,10 @@
 
       <div style="width: 90%; max-width: 600px; color: #aaa; font-size: 12px; margin-top: 10px; text-align: center; display: flex; flex-direction: column; gap: 4px;">
         <div><strong>Botão Esquerdo:</strong> Marcar Beacon | <strong>Botão Direito:</strong> Marcar como Concluída (X) | <strong>Arraste:</strong> Mover Câmera</div>
-        <div style="display: flex; justify-content: center; gap: 10px; margin-top: 5px;">
-          <span style="color: #0f0;">■ Fácil</span>
-          <span style="color: #ff0;">■ Média</span>
-          <span style="color: #f80;">■ Difícil</span>
-          <span style="color: #f00;">■ Extrema</span>
-        </div>
       </div>
-      <button id="close-map-btn" style="margin-top: 15px; padding: 10px 30px; background: #333; color: #fff; border: 1px solid #0ff; font-weight: bold; cursor: pointer; pointer-events: auto;">Fechar Mapa</button>
     </div>
 
+    <!-- Menu do Jogador -->
     <div id="player-menu" class="overlay-screen" style="background: rgba(10, 15, 25, 0.95);">
       <h2 style="color: #fff; font-size: 24px; margin: 0 0 20px 0; letter-spacing: 2px;">PERFIL DA ENTIDADE</h2>
       
@@ -221,32 +216,31 @@
       </div>
 
       <div class="ui-panel" style="width: 90%; max-width: 500px; padding: 20px;">
-        <h3 style="color: #0ff; margin-top: 0; border-bottom: 1px solid rgba(0,255,255,0.3); padding-bottom: 5px;">Registro de Sintra (Últimas Magias)</h3>
+        <h3 style="color: #0ff; margin-top: 0; border-bottom: 1px solid rgba(0,255,255,0.3); padding-bottom: 5px;">Histórico de Conjurações</h3>
         <div id="pm-spell-history" style="font-size: 13px; color: #ccc; max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
           Nenhuma conjuração registrada.
         </div>
       </div>
-
-      <button id="close-player-menu-btn" class="menu-btn-large" style="margin-top: 30px;">Retornar</button>
     </div>
 
+    <!-- Menu de Pausa -->
     <div id="pause-menu" class="overlay-screen">
-      <h2 style="color: #fff; font-size: 24px; margin: 0 0 20px 0; letter-spacing: 2px;">SISTEMA PAUSADO</h2>
+      <h2 style="color: #fff; font-size: 24px; margin: 0 0 20px 0; letter-spacing: 2px;">JOGO PAUSADO</h2>
       
       <div class="ui-panel" style="width: 90%; max-width: 500px; padding: 20px; margin-bottom: 20px; font-size: 13px; line-height: 1.6;">
         <h3 style="margin: 0 0 15px 0; color: #0ff; font-size: 16px; border-bottom: 1px solid rgba(0,255,255,0.2); padding-bottom: 8px;">Controles e Atalhos</h3>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
           <div><strong style="color:#fa0;">W, A, S, D</strong> - Mover</div>
           <div><strong style="color:#fa0;">←, →</strong> - Virar Câmera</div>
-          <div><strong style="color:#fa0;">Q, Espaço</strong> - Ação 1</div>
-          <div><strong style="color:#fa0;">E, Enter</strong> - Ação 2</div>
+          <div><strong style="color:#fa0;">Q, Espaço</strong> - Usar Item Primário</div>
+          <div><strong style="color:#fa0;">E, Enter</strong> - Usar Secundário</div>
           <div><strong style="color:#fa0;">M</strong> - Mapa Global</div>
           <div><strong style="color:#fa0;">I</strong> - Perfil do Jogador</div>
           <div><strong style="color:#fa0;">R</strong> - Meditar (Mana x1.5)</div>
           <div><strong style="color:#fa0;">Shift</strong> - Correr</div>
           <div><strong style="color:#fa0;">Ctrl</strong> - Abaixar</div>
           <div><strong style="color:#0ff;">↑, ↓</strong> - Alternar Itens</div>
-          <div><strong style="color:#0ff;">1, 2, 3, 0</strong> - Slots</div>
+          <div><strong style="color:#0ff;">1, 2, 3, 0</strong> - Slots Rápidos</div>
         </div>
       </div>
 
@@ -258,7 +252,7 @@
 
       <div style="display: flex; gap: 10px; margin-bottom: 15px;">
         <button id="btn-save-game" class="menu-btn-large" style="width: auto; padding: 12px 20px; background: #28a745; color: #fff;">Exportar Save</button>
-        <button id="resume-btn" class="menu-btn-large" style="width: auto; padding: 12px 30px;">Retomar Sistema</button>
+        <button id="resume-btn" class="menu-btn-large" style="width: auto; padding: 12px 30px;">Voltar ao Jogo</button>
       </div>
       
       <div id="save-export-area" style="display: none; width: 90%; max-width: 500px; flex-direction: column; gap: 10px;">

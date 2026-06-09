@@ -40,7 +40,6 @@ function generateOverworld(size) {
       if ((y === 0 || y === centerSize-1) && (x % 4 === 0)) map[cStart+y][cStart+x] = 1;
     }
   }
-
   map[Math.floor(size/2)][Math.floor(size/2)] = 0;
 
   const numRuins = 200; 
@@ -87,7 +86,10 @@ function generateDungeonFloor(size, difficulty) {
   
   map[y][x] = 0;
   
-  while(floorTiles < maxFloor) {
+  let tries = 0;
+  const maxTries = maxFloor * 15; // Previne Loop infinito garantindo um limite de iterações
+
+  while(floorTiles < maxFloor && tries < maxTries) {
     if(map[y][x] === 1) { 
       map[y][x] = 0; 
       floorTiles++; 
@@ -101,6 +103,7 @@ function generateDungeonFloor(size, difficulty) {
     else if(dir === 1 && x > 1) x--;
     else if(dir === 2 && y < size - 2) y++;
     else if(dir === 3 && y > 1) y--;
+    tries++;
   }
   
   map[Math.floor(size/2)][Math.floor(size/2)] = 3; 
@@ -219,7 +222,8 @@ const recastLog = document.getElementById('recast-log');
 const itemLog = document.getElementById('item-log');
 const mapCanvas = document.getElementById('world-map-canvas');
 
-const grimEntries = Object.values(SpellRegistry).sort((a,b) => a.id.localeCompare(b.id));
+// Garante o mapeamento do "id" dentro dos objetos para o livro mágico renderizar a letra
+const grimEntries = Object.keys(SpellRegistry).map(k => ({ id: k, ...SpellRegistry[k] })).sort((a,b) => a.id.localeCompare(b.id));
 let grimPage = 0;
 
 document.getElementById('sens-slider')?.addEventListener('input', (e) => {
@@ -232,9 +236,9 @@ function updateGrimoireView() {
 
   if (left) {
     document.getElementById('gp-left-title').textContent = left.id + ' - ' + left.name;
-    document.getElementById('gp-left-desc').textContent = left.desc;
+    document.getElementById('gp-left-desc').innerHTML = `<i>"${left.desc}"</i>`;
     document.getElementById('gp-left-stats').textContent = left.stats;
-    document.getElementById('gp-left-img').textContent = left.id;
+    document.getElementById('gp-left-img').innerHTML = `<span style="font-size: 110px; font-family: serif; color: #4a3018; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">${left.id}</span>`;
     document.getElementById('gp-left-guide').setAttribute('data-rune', left.id);
     document.getElementById('grimoire-page-left').style.visibility = 'visible';
   } else {
@@ -243,9 +247,9 @@ function updateGrimoireView() {
 
   if (right) {
     document.getElementById('gp-right-title').textContent = right.id + ' - ' + right.name;
-    document.getElementById('gp-right-desc').textContent = right.desc;
+    document.getElementById('gp-right-desc').innerHTML = `<i>"${right.desc}"</i>`;
     document.getElementById('gp-right-stats').textContent = right.stats;
-    document.getElementById('gp-right-img').textContent = right.id;
+    document.getElementById('gp-right-img').innerHTML = `<span style="font-size: 110px; font-family: serif; color: #4a3018; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);">${right.id}</span>`;
     document.getElementById('gp-right-guide').setAttribute('data-rune', right.id);
     document.getElementById('grimoire-page-right').style.visibility = 'visible';
   } else {
@@ -330,6 +334,7 @@ export function updateLivePreview(queueStr) {
 
 function executeAction1() {
   if (player.isMeditating) return;
+  
   if (gameState === 'PAUSED' && grimoireMenu.style.display !== 'flex' && mapOverlay.style.display !== 'flex' && spellOverlay.style.display !== 'flex') return;
   
   if (grimoireMenu.style.display === 'flex' || mapOverlay.style.display === 'flex' || spellOverlay.style.display === 'flex') { 
@@ -418,7 +423,6 @@ function toggleUI(menu) {
   }
 }
 
-// LÓGICA DO MAPA TÁTICO
 function getDiffColor(diff) {
   if (diff < 25) return '#0f0';
   if (diff < 50) return '#ff0';
@@ -572,14 +576,16 @@ function exportSave() {
     isDungeon: SceneManager.isDungeon,
     history: recentSpells
   };
-  const encoded = btoa(JSON.stringify(payload));
+  const jsonStr = JSON.stringify(payload);
+  const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
   document.getElementById('save-textarea').value = encoded;
   document.getElementById('save-export-area').style.display = 'flex';
 }
 
 function loadSave(encoded) {
   try {
-    const payload = JSON.parse(atob(encoded));
+    const jsonStr = decodeURIComponent(escape(atob(encoded.trim())));
+    const payload = JSON.parse(jsonStr);
     Object.assign(player, payload.player);
     SceneManager.dungeonsList = payload.dungeonsList;
     SceneManager.savedOverworldCoords = payload.savedCoords;
@@ -598,7 +604,6 @@ function loadSave(encoded) {
   }
 }
 
-// Binds Menu Inicial explícitos para evitar interrupção por concorrência de UI
 const btnNewGame = document.getElementById('btn-new-game');
 if(btnNewGame) {
   btnNewGame.addEventListener('click', () => {
@@ -630,7 +635,7 @@ document.getElementById('btn-download-save')?.addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'sintra_save.txt';
+  a.download = 'wizard_world_save.txt';
   a.click();
   URL.revokeObjectURL(url);
 });
@@ -640,10 +645,18 @@ document.getElementById('resume-btn')?.addEventListener('click', () => toggleUI(
 document.getElementById('close-grimoire-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-map-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-player-menu-btn')?.addEventListener('click', () => toggleUI(false));
+
+// Vínculo garantido do botão UI de cast
+document.getElementById('cast-spell-btn')?.addEventListener('click', () => {
+  if (spellOverlay.style.display === 'flex') {
+    appendCurrentRune(true); 
+  }
+});
+
 document.getElementById('action1-btn')?.addEventListener('click', executeAction1);
 document.getElementById('action2-btn')?.addEventListener('click', executeAction2);
 document.getElementById('undo-spell-btn')?.addEventListener('click', () => { undoLastRune(); });
-document.getElementById('close-spell-btn')?.addEventListener('click', () => { toggleSpellMode(); gameState = 'PLAYING'; });
+document.getElementById('close-spell-btn')?.addEventListener('click', () => { toggleSpellMode(); toggleUI(false); });
 
 for (let i = 0; i <= 3; i++) {
   document.getElementById(`slot-${i}`)?.addEventListener('click', () => setActiveSlot(i));
@@ -652,7 +665,7 @@ for (let i = 0; i <= 3; i++) {
 window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (gameState === 'PLAYING') toggleUI('pause'); 
-    else if (gameState === 'PAUSED' && spellOverlay.style.display === 'flex') { toggleSpellMode(); gameState = 'PLAYING'; }
+    else if (gameState === 'PAUSED' && spellOverlay.style.display === 'flex') { toggleSpellMode(); toggleUI(false); }
     else if (gameState !== 'MAIN_MENU') toggleUI(false);
   }
 
@@ -681,15 +694,32 @@ window.addEventListener('keydown', e => {
 
     if (e.key.toLowerCase() === 'q' || e.key === ' ') { e.preventDefault(); executeAction1(); }
     if (e.key.toLowerCase() === 'e' || e.key === 'Enter') { e.preventDefault(); executeAction2(); }
-  } else if (gameState === 'PAUSED' && spellOverlay.style.display === 'flex') {
-    if (e.key.toLowerCase() === 'e') { e.preventDefault(); appendCurrentRune(false); }
-    if (e.key.toLowerCase() === 'z') { e.preventDefault(); undoLastRune(); }
-    if (e.key === 'Enter') { e.preventDefault(); appendCurrentRune(true); }
+    
+  } else if (gameState === 'PAUSED') {
+    // Permite fechar a UI respectiva apertando a mesma tecla
+    if (e.key.toLowerCase() === 'q' && (spellOverlay.style.display === 'flex' || grimoireMenu.style.display === 'flex')) {
+      if (spellOverlay.style.display === 'flex') toggleSpellMode();
+      toggleUI(false);
+    }
+    if (e.key.toLowerCase() === 'm' && mapOverlay.style.display === 'flex') {
+      toggleUI(false);
+    }
+    if (e.key.toLowerCase() === 'i' && playerMenu.style.display === 'flex') {
+      toggleUI(false);
+    }
+    
+    // Controles internos do caderno de magias
+    if (spellOverlay.style.display === 'flex') {
+      if (e.key.toLowerCase() === 'e') { e.preventDefault(); appendCurrentRune(false); }
+      if (e.key.toLowerCase() === 'z') { e.preventDefault(); undoLastRune(); }
+      if (e.key === 'Enter') { e.preventDefault(); appendCurrentRune(true); }
+    }
   }
 });
 
 onSpellCast((spellResult) => {
-  gameState = 'PLAYING';
+  toggleUI(false); 
+  
   if (!spellResult || spellResult.spellId === 'Falha') {
     spellLog.textContent = "Magia: Falha no traço"; spellLog.style.color = "#f00";
     return;
