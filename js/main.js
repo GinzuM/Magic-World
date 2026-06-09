@@ -13,15 +13,13 @@ export const Inventory = {
     { id: 'map', name: 'Mapa Tático Global' },
     { id: 'empty', name: 'Mão Vazia' }
   ],
-  activeIndex: 3 // Inicia na Mão Vazia
+  activeIndex: 3 
 };
 
 player.coins = 0;
 export const recentSpells = [];
 
-// Geração de Mundo 500x500
 const WORLD_SIZE = 500;
-
 const structures = [
   { w: 3, h: 3, data: [[1,1,1],[1,2,1],[1,0,1]] },
   { w: 5, h: 5, data: [[1,0,1,0,1],[0,0,0,0,0],[1,0,2,0,1],[0,0,0,0,0],[1,0,1,0,1]] },
@@ -95,8 +93,8 @@ function generateDungeonFloor(size, difficulty) {
       floorTiles++; 
       
       let rand = Math.random() * 100;
-      if(rand < 3) map[y][x] = 4; // Caixa
-      else if(rand < 3.5 && chests < 2) { map[y][x] = 5; chests++; } // Baú
+      if(rand < 3) map[y][x] = 4;
+      else if(rand < 3.5 && chests < 2) { map[y][x] = 5; chests++; }
     }
     let dir = Math.floor(Math.random() * 4);
     if(dir === 0 && x < size - 2) x++;
@@ -108,14 +106,9 @@ function generateDungeonFloor(size, difficulty) {
   map[Math.floor(size/2)][Math.floor(size/2)] = 3; 
   map[y][x] = 2; 
 
-  // Correção crítica: Envelopamento das bordas para evitar Softlock de colisão no DDA
   for (let i = 0; i < size; i++) {
-    map[0][i] = 1;
-    map[size - 1][i] = 1;
-    map[i][0] = 1;
-    map[i][size - 1] = 1;
+    map[0][i] = 1; map[size - 1][i] = 1; map[i][0] = 1; map[i][size - 1] = 1;
   }
-  
   return { map, chests };
 }
 
@@ -149,7 +142,6 @@ export const SceneManager = {
         this.dungeonData.floors.push(floorGen.map);
         this.dungeonData.totalChests += floorGen.chests;
       }
-      
       this.loadFloor();
     } else {
       if (type === 'down') { 
@@ -201,7 +193,6 @@ export const SceneManager = {
   }
 };
 
-// Spawn inicial no centro
 player.x = WORLD_SIZE / 2;
 player.y = WORLD_SIZE / 2;
 
@@ -211,7 +202,6 @@ let cacheSpell = null;
 let globalCooldown = 0;
 let portalCooldown = 0;
 
-// Variáveis do Mapa Tático
 let mapZoom = 1.0;
 let mapOffsetX = 0;
 let mapOffsetY = 0;
@@ -574,7 +564,6 @@ mapCanvas.addEventListener('click', (e) => {
 document.getElementById('map-zoom-in')?.addEventListener('click', () => { mapZoom = Math.min(mapZoom + 0.5, 4.0); renderWorldMap(); });
 document.getElementById('map-zoom-out')?.addEventListener('click', () => { mapZoom = Math.max(mapZoom - 0.5, 0.5); renderWorldMap(); });
 
-// SAVE / LOAD SYSTEM
 function exportSave() {
   const payload = {
     player: { hp: player.hp, maxHp: player.maxHp, mana: player.mana, maxMana: player.maxMana, armor: player.armor, coins: player.coins, x: player.x, y: player.y, angle: player.angle },
@@ -609,6 +598,31 @@ function loadSave(encoded) {
   }
 }
 
+// Binds Menu Inicial explícitos para evitar interrupção por concorrência de UI
+const btnNewGame = document.getElementById('btn-new-game');
+if(btnNewGame) {
+  btnNewGame.addEventListener('click', () => {
+    document.getElementById('main-menu').style.display = 'none';
+    gameState = 'PLAYING';
+    lastTime = performance.now();
+  });
+}
+
+const btnLoadGame = document.getElementById('btn-load-game');
+if(btnLoadGame) {
+  btnLoadGame.addEventListener('click', () => {
+    document.getElementById('file-import').click();
+  });
+}
+
+document.getElementById('file-import')?.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => loadSave(ev.target.result);
+  reader.readAsText(file);
+});
+
 document.getElementById('btn-save-game')?.addEventListener('click', exportSave);
 document.getElementById('btn-download-save')?.addEventListener('click', () => {
   const data = document.getElementById('save-textarea').value;
@@ -620,21 +634,7 @@ document.getElementById('btn-download-save')?.addEventListener('click', () => {
   a.click();
   URL.revokeObjectURL(url);
 });
-document.getElementById('btn-new-game')?.addEventListener('click', () => {
-  document.getElementById('main-menu').style.display = 'none';
-  gameState = 'PLAYING';
-  lastTime = performance.now();
-});
-document.getElementById('btn-load-game')?.addEventListener('click', () => document.getElementById('file-import').click());
-document.getElementById('file-import')?.addEventListener('change', (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (ev) => loadSave(ev.target.result);
-  reader.readAsText(file);
-});
 
-// Binds de UI
 document.getElementById('menu-btn')?.addEventListener('click', () => toggleUI('pause'));
 document.getElementById('resume-btn')?.addEventListener('click', () => toggleUI(false));
 document.getElementById('close-grimoire-btn')?.addEventListener('click', () => toggleUI(false));
@@ -653,7 +653,7 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (gameState === 'PLAYING') toggleUI('pause'); 
     else if (gameState === 'PAUSED' && spellOverlay.style.display === 'flex') { toggleSpellMode(); gameState = 'PLAYING'; }
-    else toggleUI(false);
+    else if (gameState !== 'MAIN_MENU') toggleUI(false);
   }
 
   if (gameState === 'PLAYING') {
@@ -719,8 +719,8 @@ document.addEventListener('click', (e) => {
   if (e.target && e.target.classList.contains('guide-btn')) {
     window.activeWatermark = e.target.getAttribute('data-rune');
     toggleUI(false);
-    setActiveSlot(0); // Força selecionar o Caderno ao Praticar
-    executeAction1(); // Abre direto a tela de desenho
+    setActiveSlot(0);
+    executeAction1();
   }
 });
 
